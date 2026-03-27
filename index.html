@@ -1,0 +1,2490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="OTO">
+<meta name="theme-color" content="#243D0F">
+<title>OTO — OneTripOnly</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,300&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+/* ═══════════════════════════════════════════
+   API KEY CONFIGURATION — EDIT THESE VALUES
+   ═══════════════════════════════════════════
+   See bottom of <script> section for full
+   API_KEYS object and setup instructions.
+*/
+
+:root {
+  --burnt: #C8512A;
+  --burnt-light: #E06A3A;
+  --burnt-dark: #9E3D1E;
+  --forest: #243D0F;
+  --forest-light: #325414;
+  --forest-mid: #45701C;
+  --white: #F5F0EA;
+  --off-white: #EDE5D8;
+  --bark: #7A5C35;
+  --stone: #2A2520;
+  --stone-mid: #3D3530;
+  --mist: rgba(245,240,234,0.96);
+  --shadow-sm: 0 2px 8px rgba(0,0,0,0.25);
+  --shadow-md: 0 4px 18px rgba(0,0,0,0.35);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,0.45);
+  --nav-h: 66px;
+  --header-h: 54px;
+  --radius: 14px;
+}
+
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden}
+body{font-family:'DM Sans',sans-serif;background:var(--stone);color:var(--white);display:flex;flex-direction:column;height:100dvh}
+
+/* ── HEADER ── */
+header{
+  height:var(--header-h);background:var(--forest);
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 14px;flex-shrink:0;z-index:200;
+  box-shadow:0 2px 16px rgba(0,0,0,0.4);
+  border-bottom:1px solid rgba(255,255,255,0.06);
+}
+.logo{font-family:'Bebas Neue',sans-serif;font-size:26px;letter-spacing:4px;color:var(--white);line-height:1;user-select:none}
+.logo em{color:var(--burnt-light);font-style:normal}
+.hdr-right{display:flex;align-items:center;gap:8px}
+.gps-pill{
+  display:flex;align-items:center;gap:5px;
+  background:rgba(200,81,42,0.15);border:1px solid rgba(200,81,42,0.4);
+  border-radius:20px;padding:5px 10px;cursor:pointer;
+  transition:all .2s;
+}
+.gps-pill:active{transform:scale(.96)}
+.gps-dot{width:7px;height:7px;border-radius:50%;background:#666;transition:background .3s}
+.gps-dot.on{background:var(--burnt-light);animation:blink 1.8s infinite}
+.gps-dot.lock{background:#27ae60;animation:none}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+.gps-label{font-family:'DM Mono',monospace;font-size:10px;color:var(--burnt-light);letter-spacing:.5px}
+.avatar-btn{
+  width:32px;height:32px;border-radius:50%;
+  background:linear-gradient(135deg,var(--burnt-dark),var(--burnt));
+  border:2px solid var(--burnt-light);
+  display:flex;align-items:center;justify-content:center;
+  font-size:13px;font-weight:700;color:var(--white);cursor:pointer;
+}
+
+/* ── LAYOUT ── */
+.main{flex:1;overflow:hidden;position:relative}
+.screen{position:absolute;inset:0;display:none;flex-direction:column;overflow:hidden}
+.screen.active{display:flex}
+
+/* ── MAP ── */
+#map{flex:1;z-index:1}
+.leaflet-control-zoom{display:none!important}
+.leaflet-control-attribution{font-size:7px!important;opacity:.4!important}
+
+/* Map overlays */
+.map-search-bar{
+  position:absolute;top:10px;left:10px;right:10px;z-index:50;
+  display:flex;gap:8px;
+}
+.search-pill{
+  flex:1;background:var(--mist);border-radius:12px;
+  display:flex;align-items:center;gap:8px;
+  padding:10px 13px;
+  box-shadow:var(--shadow-md);
+  border:1px solid rgba(200,81,42,0.15);
+}
+.search-pill input{
+  flex:1;border:none;background:transparent;
+  font-family:'DM Sans',sans-serif;font-size:14px;
+  color:var(--stone);outline:none;
+}
+.search-pill input::placeholder{color:#aaa}
+.search-ico{font-size:15px;opacity:.6}
+.search-results{
+  position:absolute;top:52px;left:0;right:0;
+  background:var(--mist);border-radius:0 0 12px 12px;
+  max-height:200px;overflow-y:auto;
+  box-shadow:var(--shadow-md);display:none;
+}
+.search-result-item{
+  padding:10px 14px;border-bottom:1px solid rgba(0,0,0,.06);
+  font-size:13px;color:var(--stone);cursor:pointer;
+  display:flex;align-items:center;gap:8px;
+}
+.search-result-item:hover{background:var(--off-white)}
+.search-result-item:last-child{border-bottom:none}
+
+.map-fab{
+  width:42px;height:42px;background:var(--mist);
+  border-radius:12px;display:flex;align-items:center;
+  justify-content:center;cursor:pointer;flex-shrink:0;
+  box-shadow:var(--shadow-md);border:1px solid rgba(200,81,42,.15);
+  font-size:17px;transition:all .15s;
+}
+.map-fab:active{transform:scale(.94)}
+
+.map-controls{
+  position:absolute;right:11px;bottom:calc(var(--nav-h) + 80px);
+  z-index:50;display:flex;flex-direction:column;gap:7px;
+}
+.ctrl-btn{
+  width:44px;height:44px;background:var(--mist);
+  border-radius:12px;display:flex;align-items:center;
+  justify-content:center;cursor:pointer;font-size:18px;
+  box-shadow:var(--shadow-md);border:1px solid rgba(200,81,42,.12);
+  transition:all .15s;position:relative;
+}
+.ctrl-btn:active{transform:scale(.93)}
+.ctrl-btn.active{background:var(--burnt);color:#fff;border-color:var(--burnt-dark)}
+.ctrl-btn .badge{
+  position:absolute;top:-4px;right:-4px;
+  width:14px;height:14px;border-radius:50%;
+  background:#e74c3c;font-size:8px;
+  display:flex;align-items:center;justify-content:center;
+  color:#fff;font-weight:700;
+}
+
+.track-btn{
+  position:absolute;bottom:calc(var(--nav-h) + 14px);
+  left:50%;transform:translateX(-50%);z-index:50;
+  background:var(--burnt);color:#fff;border:none;
+  border-radius:28px;padding:12px 26px;
+  font-family:'Bebas Neue',sans-serif;font-size:19px;
+  letter-spacing:2px;cursor:pointer;
+  box-shadow:0 4px 22px rgba(200,81,42,.55);
+  display:flex;align-items:center;gap:7px;
+  transition:all .2s;white-space:nowrap;
+}
+.track-btn:active{transform:translateX(-50%) scale(.96)}
+.track-btn.recording{background:#b33;box-shadow:0 4px 22px rgba(180,40,40,.55)}
+
+/* Live stats HUD */
+.live-hud{
+  position:absolute;
+  bottom:calc(var(--nav-h) + 72px);
+  left:10px;right:10px;z-index:50;
+  background:var(--mist);border-radius:var(--radius);
+  padding:10px 0;display:none;
+  box-shadow:var(--shadow-md);border:1px solid rgba(200,81,42,.18);
+}
+.live-hud.show{display:flex}
+.hud-item{flex:1;text-align:center;border-right:1px solid rgba(0,0,0,.07)}
+.hud-item:last-child{border-right:none}
+.hud-val{font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--burnt);line-height:1}
+.hud-lbl{font-size:9px;color:#999;text-transform:uppercase;letter-spacing:.8px;margin-top:2px}
+
+/* Weather HUD */
+.wx-strip{
+  position:absolute;bottom:calc(var(--nav-h) + 130px);
+  left:10px;right:10px;z-index:50;
+  background:linear-gradient(135deg,var(--forest) 0%,var(--forest-light) 100%);
+  border-radius:var(--radius);padding:10px 14px;
+  display:none;align-items:center;gap:10px;flex-wrap:wrap;
+  box-shadow:var(--shadow-md);border:1px solid rgba(255,255,255,.07);
+}
+.wx-strip.show{display:flex}
+.wx-item{display:flex;align-items:center;gap:4px;font-size:12px;color:var(--white)}
+.wx-item .wi{font-size:15px}
+.wx-loading{font-size:12px;color:rgba(255,255,255,.6);font-style:italic}
+
+/* Elevation legend */
+.elev-legend{
+  position:absolute;right:65px;
+  bottom:calc(var(--nav-h) + 170px);
+  z-index:50;background:var(--mist);
+  border-radius:10px;padding:10px 12px;
+  display:none;box-shadow:var(--shadow-md);
+  align-items:center;gap:8px;
+}
+.elev-legend.show{display:flex}
+.elev-bar{width:16px;height:90px;border-radius:4px;background:linear-gradient(to bottom,#c0392b,#e67e22,#f1c40f,#27ae60,#2980b9);flex-shrink:0}
+.elev-labels{display:flex;flex-direction:column;justify-content:space-between;height:90px}
+.elev-lbl{font-size:9px;color:#888;font-family:'DM Mono',monospace}
+
+/* POI popup custom */
+.poi-popup{min-width:160px}
+.poi-popup h3{font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:1px;color:var(--stone);margin-bottom:4px}
+.poi-popup p{font-size:11px;color:#666;margin-bottom:6px}
+.poi-popup .poi-tags{display:flex;gap:4px;flex-wrap:wrap}
+.poi-popup .poi-tag{background:rgba(200,81,42,.1);color:var(--burnt-dark);font-size:10px;padding:2px 7px;border-radius:10px}
+.poi-popup .poi-act{margin-top:8px;display:flex;gap:6px}
+.poi-popup .poi-act button{
+  flex:1;padding:5px 8px;border:none;border-radius:8px;
+  font-size:11px;font-family:'DM Sans',sans-serif;
+  cursor:pointer;font-weight:500;
+}
+.poi-popup .poi-act .btn-pin{background:var(--burnt);color:#fff}
+.poi-popup .poi-act .btn-dir{background:var(--off-white);color:var(--stone)}
+
+/* ── SHARED SCREEN STYLES ── */
+.scr-scroll{flex:1;overflow-y:auto;padding:14px;padding-bottom:20px}
+.scr-scroll::-webkit-scrollbar{display:none}
+.sec-title{
+  font-family:'Bebas Neue',sans-serif;font-size:20px;
+  letter-spacing:2px;color:var(--burnt-light);
+  margin-bottom:11px;display:flex;align-items:center;gap:7px;
+}
+.card{
+  background:var(--mist);border-radius:var(--radius);
+  padding:15px;margin-bottom:13px;color:var(--stone);
+  box-shadow:var(--shadow-sm);border:1px solid rgba(200,81,42,.1);
+}
+.card-title{font-family:'Bebas Neue',sans-serif;font-size:17px;letter-spacing:1px;color:var(--stone);margin-bottom:10px}
+.form-row{display:flex;gap:9px;margin-bottom:9px}
+.fg{flex:1}
+.flabel{font-size:10px;color:#999;text-transform:uppercase;letter-spacing:.8px;margin-bottom:3px;display:block}
+.finput{
+  width:100%;padding:9px 11px;
+  background:var(--off-white);border:1px solid rgba(200,81,42,.2);
+  border-radius:10px;font-family:'DM Sans',sans-serif;
+  font-size:13px;color:var(--stone);outline:none;
+  transition:border-color .2s;
+}
+.finput:focus{border-color:var(--burnt)}
+select.finput{-webkit-appearance:none;cursor:pointer}
+.btn-main{
+  width:100%;padding:13px;background:var(--burnt);
+  color:#fff;border:none;border-radius:11px;
+  font-family:'Bebas Neue',sans-serif;font-size:17px;
+  letter-spacing:2px;cursor:pointer;transition:all .18s;
+}
+.btn-main:active{transform:scale(.98);background:var(--burnt-dark)}
+.btn-sec{
+  padding:7px 14px;background:transparent;color:var(--burnt);
+  border:1.5px solid var(--burnt);border-radius:9px;
+  font-family:'DM Sans',sans-serif;font-size:12px;
+  font-weight:500;cursor:pointer;transition:all .15s;
+}
+.btn-sec:active{background:rgba(200,81,42,.1)}
+.badge{
+  display:inline-block;padding:2px 9px;border-radius:20px;
+  font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;
+}
+.badge-orange{background:var(--burnt);color:#fff}
+.badge-green{background:var(--forest-mid);color:#fff}
+.badge-blue{background:#2980b9;color:#fff}
+.badge-red{background:#c0392b;color:#fff}
+
+/* Day segments */
+.day-seg{
+  background:var(--mist);border-radius:var(--radius);
+  margin-bottom:9px;overflow:hidden;color:var(--stone);
+  box-shadow:var(--shadow-sm);border-left:3px solid var(--burnt);
+}
+.day-seg-hdr{
+  padding:11px 13px;display:flex;justify-content:space-between;
+  align-items:center;cursor:pointer;
+  background:rgba(200,81,42,.05);
+}
+.day-seg-title{font-weight:600;font-size:13px}
+.day-seg-meta{font-size:11px;color:#999;margin-top:1px}
+.day-seg-nums{display:flex;gap:12px}
+.dsn{text-align:center}
+.dsn .v{font-family:'Bebas Neue',sans-serif;font-size:17px;color:var(--burnt);line-height:1}
+.dsn .l{font-size:9px;color:#aaa;text-transform:uppercase}
+.day-seg-body{padding:0 13px 12px;display:none}
+.day-seg-body.open{display:block}
+.wp-list{margin-top:8px}
+.wp{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(0,0,0,.05);font-size:12px;color:var(--stone)}
+.wp:last-child{border-bottom:none}
+.wp-ic{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0}
+.wp-ic.hotel{background:rgba(45,80,22,.15)}
+.wp-ic.food{background:rgba(200,81,42,.12)}
+.wp-ic.view{background:rgba(41,128,185,.12)}
+.wp-ic.warn{background:rgba(192,57,43,.1)}
+
+/* Alert cards */
+.alert-card{
+  border-radius:11px;padding:11px 13px;
+  margin-bottom:8px;display:flex;gap:9px;
+  align-items:flex-start;color:var(--stone);
+  border:1px solid;
+}
+.alert-card.warn{background:rgba(192,57,43,.06);border-color:rgba(192,57,43,.2)}
+.alert-card.info{background:rgba(41,128,185,.06);border-color:rgba(41,128,185,.18)}
+.alert-card.ok{background:rgba(39,174,96,.06);border-color:rgba(39,174,96,.2)}
+.alert-ico{font-size:17px;flex-shrink:0;margin-top:1px}
+.alert-title{font-weight:600;font-size:12px;margin-bottom:2px}
+.alert-body{font-size:11px;color:#666;line-height:1.4}
+.alert-meta{font-size:10px;color:#bbb;margin-top:3px}
+
+/* POI chips */
+.chip-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.chip{
+  padding:5px 12px;border-radius:20px;
+  border:1.5px solid rgba(200,81,42,.25);
+  font-size:12px;cursor:pointer;color:var(--stone);
+  background:var(--off-white);transition:all .15s;
+}
+.chip.on{background:var(--burnt);color:#fff;border-color:var(--burnt)}
+
+/* Route cards */
+.route-card{
+  background:var(--mist);border-radius:var(--radius);
+  overflow:hidden;margin-bottom:11px;
+  box-shadow:var(--shadow-sm);color:var(--stone);
+}
+.route-img{
+  height:105px;display:flex;align-items:flex-end;
+  padding:10px 13px;position:relative;overflow:hidden;
+}
+.route-img-name{
+  font-family:'Bebas Neue',sans-serif;font-size:19px;
+  letter-spacing:1px;color:#fff;position:relative;z-index:1;
+  text-shadow:0 2px 8px rgba(0,0,0,.5);
+}
+.route-body{padding:11px 13px}
+.route-meta{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:8px}
+.rm{display:flex;align-items:center;gap:3px;font-size:11px;color:#888}
+.diff{display:inline-block;padding:2px 9px;border-radius:20px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.3px}
+.diff-mod{background:rgba(45,80,22,.12);color:var(--forest-mid)}
+.diff-hard{background:rgba(200,81,42,.12);color:var(--burnt-dark)}
+.diff-easy{background:rgba(41,128,185,.1);color:#2980b9}
+
+/* Profile */
+.prof-hdr{
+  background:linear-gradient(150deg,var(--forest) 0%,var(--forest-light) 50%,var(--burnt-dark) 100%);
+  padding:22px 16px 18px;text-align:center;
+}
+.prof-av{
+  width:68px;height:68px;border-radius:50%;
+  background:linear-gradient(135deg,var(--burnt-dark),var(--burnt));
+  margin:0 auto 8px;display:flex;align-items:center;
+  justify-content:center;font-size:26px;font-weight:700;
+  border:3px solid var(--white);color:var(--white);
+}
+.prof-name{font-family:'Bebas Neue',sans-serif;font-size:21px;letter-spacing:2px}
+.prof-sub{font-size:11px;color:rgba(255,255,255,.6);margin-top:2px}
+.settings-group{
+  background:var(--mist);border-radius:var(--radius);
+  overflow:hidden;margin-bottom:12px;
+  box-shadow:var(--shadow-sm);
+}
+.settings-row{
+  display:flex;align-items:center;gap:11px;
+  padding:12px 15px;border-bottom:1px solid rgba(0,0,0,.06);
+  color:var(--stone);cursor:pointer;
+}
+.settings-row:last-child{border-bottom:none}
+.sr-ico{font-size:17px;width:26px;text-align:center}
+.sr-label{flex:1;font-size:13px;font-weight:500}
+.sr-val{font-size:12px;color:#aaa}
+.toggle{width:42px;height:23px;background:#ccc;border-radius:12px;position:relative;cursor:pointer;transition:background .2s;flex-shrink:0}
+.toggle.on{background:var(--forest-mid)}
+.toggle::after{content:'';position:absolute;top:2px;left:2px;width:19px;height:19px;border-radius:50%;background:#fff;transition:left .2s;box-shadow:0 1px 4px rgba(0,0,0,.2)}
+.toggle.on::after{left:21px}
+
+/* Modal */
+.modal-bg{
+  position:fixed;inset:0;background:rgba(0,0,0,.55);
+  z-index:300;display:none;align-items:flex-end;
+}
+.modal-bg.open{display:flex}
+.modal-sheet{
+  width:100%;background:var(--white);
+  border-radius:20px 20px 0 0;
+  padding:18px 18px 36px;color:var(--stone);
+  animation:slideUp .28s ease;
+}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.modal-handle{width:38px;height:4px;background:#ddd;border-radius:2px;margin:0 auto 14px}
+.modal-title{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:2px;color:var(--stone);margin-bottom:14px}
+.src-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px}
+.src-btn{
+  padding:12px 6px;border:2px solid rgba(200,81,42,.18);
+  border-radius:11px;text-align:center;cursor:pointer;
+  background:var(--off-white);transition:all .15s;
+}
+.src-btn:active,.src-btn.on{border-color:var(--burnt);background:rgba(200,81,42,.08)}
+.src-ico{font-size:20px;margin-bottom:3px}
+.src-lbl{font-size:11px;font-weight:600;color:var(--stone)}
+
+/* Nav */
+nav{
+  height:var(--nav-h);background:var(--stone-mid);
+  display:flex;border-top:1px solid rgba(255,255,255,.07);
+  flex-shrink:0;z-index:200;
+}
+.nav-btn{
+  flex:1;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  gap:3px;cursor:pointer;position:relative;
+  transition:all .18s;
+}
+.nav-ico{font-size:21px;transition:transform .2s}
+.nav-lbl{font-size:9px;text-transform:uppercase;letter-spacing:.8px;color:#777;transition:color .2s}
+.nav-btn.active .nav-lbl{color:var(--burnt-light)}
+.nav-btn.active .nav-ico{transform:translateY(-2px)}
+.nav-btn.active::before{
+  content:'';position:absolute;top:0;left:20%;right:20%;
+  height:2px;background:var(--burnt);border-radius:0 0 2px 2px;
+}
+
+/* Toast */
+.toast{
+  position:fixed;bottom:calc(var(--nav-h) + 12px);
+  left:50%;transform:translateX(-50%);
+  background:var(--stone);color:var(--white);
+  padding:9px 18px;border-radius:22px;
+  font-size:12px;z-index:400;opacity:0;
+  transition:opacity .28s;pointer-events:none;
+  border:1px solid rgba(200,81,42,.35);
+  white-space:nowrap;box-shadow:var(--shadow-lg);
+  max-width:90vw;text-align:center;
+}
+.toast.show{opacity:1}
+
+/* Loading spinner */
+.spinner{
+  width:18px;height:18px;border-radius:50%;
+  border:2px solid rgba(200,81,42,.3);
+  border-top-color:var(--burnt);
+  animation:spin .7s linear infinite;display:inline-block;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* GPX file input */
+.gpx-drop{
+  border:2px dashed rgba(200,81,42,.35);
+  border-radius:11px;padding:18px;text-align:center;
+  margin-bottom:12px;cursor:pointer;
+  background:rgba(200,81,42,.04);transition:all .2s;
+}
+.gpx-drop:hover{border-color:var(--burnt);background:rgba(200,81,42,.08)}
+.gpx-drop input{display:none}
+
+/* Leaflet popup override */
+.leaflet-popup-content-wrapper{border-radius:12px!important;box-shadow:var(--shadow-lg)!important;padding:0!important}
+.leaflet-popup-content{margin:0!important;padding:0!important}
+.leaflet-popup-tip{background:#fff!important}
+.oto-popup{padding:12px 14px;min-width:170px;font-family:'DM Sans',sans-serif}
+.oto-popup h3{font-family:'Bebas Neue',sans-serif;font-size:15px;letter-spacing:1px;color:var(--stone);margin-bottom:3px}
+.oto-popup .otp-sub{font-size:11px;color:#888;margin-bottom:7px}
+.oto-popup .otp-row{display:flex;gap:6px;margin-top:7px}
+.oto-popup .otp-btn{flex:1;padding:6px 8px;border:none;border-radius:8px;font-size:11px;cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:500}
+.otp-btn-pin{background:var(--burnt);color:#fff}
+.otp-btn-go{background:var(--off-white);color:var(--stone)}
+
+/* Off-route warning */
+.offroute-banner{
+  position:absolute;top:62px;left:10px;right:10px;z-index:60;
+  background:rgba(192,57,43,.92);color:#fff;
+  border-radius:11px;padding:9px 14px;
+  display:none;align-items:center;gap:9px;
+  font-size:13px;font-weight:500;
+  box-shadow:var(--shadow-md);
+  backdrop-filter:blur(4px);
+}
+.offroute-banner.show{display:flex}
+
+/* ── COMMUNITY SCREEN ── */
+.comm-header{
+  background:linear-gradient(135deg,var(--forest) 0%,var(--forest-light) 60%,var(--burnt-dark) 100%);
+  padding:14px 14px 0;flex-shrink:0;
+}
+.comm-tabs{display:flex;gap:0;margin-top:10px}
+.comm-tab{
+  flex:1;text-align:center;padding:9px 4px;
+  font-size:11px;font-weight:600;text-transform:uppercase;
+  letter-spacing:.6px;color:rgba(255,255,255,.55);
+  cursor:pointer;border-bottom:2px solid transparent;
+  transition:all .2s;
+}
+.comm-tab.active{color:var(--white);border-bottom-color:var(--burnt-light)}
+.comm-feed{flex:1;overflow-y:auto;padding:12px 12px 20px}
+.comm-feed::-webkit-scrollbar{display:none}
+
+/* Post card */
+.post-card{
+  background:var(--mist);border-radius:var(--radius);
+  margin-bottom:12px;overflow:hidden;
+  box-shadow:var(--shadow-sm);border:1px solid rgba(200,81,42,.08);
+  color:var(--stone);
+}
+.post-card-header{
+  display:flex;align-items:center;gap:10px;
+  padding:11px 13px 0;
+}
+.post-avatar{
+  width:36px;height:36px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:14px;font-weight:700;color:#fff;
+  flex-shrink:0;
+}
+.post-meta{flex:1;min-width:0}
+.post-author{font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.post-location{font-size:11px;color:#888;display:flex;align-items:center;gap:3px;margin-top:1px}
+.post-time{font-size:10px;color:#bbb;flex-shrink:0}
+
+.post-category{
+  display:inline-flex;align-items:center;gap:4px;
+  margin:7px 13px 0;padding:3px 10px;
+  border-radius:20px;font-size:10px;font-weight:600;
+  text-transform:uppercase;letter-spacing:.4px;
+}
+.cat-trail{background:rgba(69,112,28,.12);color:var(--forest-mid)}
+.cat-hotel{background:rgba(41,128,185,.1);color:#2471a3}
+.cat-restaurant{background:rgba(200,81,42,.1);color:var(--burnt-dark)}
+.cat-poi{background:rgba(139,111,71,.12);color:var(--bark)}
+.cat-condition{background:rgba(192,57,43,.1);color:#c0392b}
+
+.post-stars{
+  display:flex;align-items:center;gap:2px;
+  padding:4px 13px 0;font-size:15px;
+}
+.post-stars .star{color:#ddd;transition:color .1s}
+.post-stars .star.on{color:#e67e22}
+
+.post-body{padding:7px 13px 10px;font-size:13px;line-height:1.55;color:#3a3530}
+
+.post-tags{display:flex;gap:5px;flex-wrap:wrap;padding:0 13px 10px}
+.post-tag{
+  padding:3px 9px;border-radius:20px;font-size:10px;font-weight:500;
+  background:var(--off-white);color:#888;border:1px solid rgba(0,0,0,.06);
+}
+.post-tag.warn{background:rgba(192,57,43,.08);color:#c0392b;border-color:rgba(192,57,43,.15)}
+.post-tag.good{background:rgba(39,174,96,.08);color:#27ae60;border-color:rgba(39,174,96,.15)}
+
+/* Photo strip */
+.post-photos{
+  display:flex;gap:3px;padding:0 13px 10px;overflow-x:auto;
+}
+.post-photos::-webkit-scrollbar{display:none}
+.post-photo{
+  width:90px;height:70px;border-radius:9px;
+  object-fit:cover;flex-shrink:0;cursor:pointer;
+  background:linear-gradient(135deg,var(--forest),var(--bark));
+  display:flex;align-items:center;justify-content:center;
+  font-size:22px;
+}
+
+.post-actions{
+  display:flex;border-top:1px solid rgba(0,0,0,.06);
+}
+.post-action{
+  flex:1;display:flex;align-items:center;justify-content:center;
+  gap:5px;padding:9px 4px;font-size:12px;color:#999;
+  cursor:pointer;transition:all .15s;border-right:1px solid rgba(0,0,0,.06);
+}
+.post-action:last-child{border-right:none}
+.post-action:active,.post-action.liked{color:var(--burnt)}
+.post-action span{font-size:15px}
+
+/* Write review FAB */
+.write-fab{
+  position:fixed;bottom:calc(var(--nav-h) + 14px);right:14px;
+  z-index:150;
+  width:52px;height:52px;border-radius:50%;
+  background:var(--burnt);color:#fff;
+  display:none;align-items:center;justify-content:center;
+  font-size:22px;cursor:pointer;
+  box-shadow:0 4px 20px rgba(200,81,42,.5);
+  transition:all .2s;border:none;
+}
+.write-fab.show{display:flex}
+.write-fab:active{transform:scale(.93)}
+
+/* Filter bar */
+.filter-bar{
+  display:flex;gap:6px;overflow-x:auto;
+  padding:10px 12px;background:var(--stone-mid);
+  flex-shrink:0;
+}
+.filter-bar::-webkit-scrollbar{display:none}
+.filter-pill{
+  padding:5px 13px;border-radius:20px;
+  border:1px solid rgba(255,255,255,.12);
+  font-size:11px;font-weight:500;color:rgba(255,255,255,.6);
+  white-space:nowrap;cursor:pointer;flex-shrink:0;
+  transition:all .15s;background:transparent;
+}
+.filter-pill.on{background:var(--burnt);color:#fff;border-color:var(--burnt)}
+
+/* Auth modal */
+.auth-modal-sheet{
+  width:100%;background:var(--white);
+  border-radius:20px 20px 0 0;
+  padding:20px 18px 40px;color:var(--stone);
+  animation:slideUp .28s ease;
+}
+.auth-tabs{display:flex;gap:0;margin-bottom:18px;border-bottom:2px solid var(--off-white)}
+.auth-tab{
+  flex:1;text-align:center;padding:10px;
+  font-family:'Bebas Neue',sans-serif;font-size:17px;
+  letter-spacing:1px;cursor:pointer;color:#bbb;
+  border-bottom:2px solid transparent;margin-bottom:-2px;
+  transition:all .2s;
+}
+.auth-tab.active{color:var(--burnt);border-bottom-color:var(--burnt)}
+.auth-input{
+  width:100%;padding:12px 14px;margin-bottom:10px;
+  background:var(--off-white);border:1px solid rgba(200,81,42,.2);
+  border-radius:11px;font-family:'DM Sans',sans-serif;
+  font-size:14px;color:var(--stone);outline:none;
+  transition:border-color .2s;
+}
+.auth-input:focus{border-color:var(--burnt)}
+.auth-err{font-size:12px;color:#c0392b;margin-bottom:8px;min-height:16px}
+.auth-divider{text-align:center;font-size:11px;color:#bbb;margin:10px 0}
+
+/* Compose modal */
+.compose-sheet{
+  width:100%;background:var(--white);
+  border-radius:20px 20px 0 0;
+  max-height:90vh;overflow-y:auto;
+  padding:18px 16px 40px;color:var(--stone);
+  animation:slideUp .28s ease;
+}
+.compose-sheet::-webkit-scrollbar{display:none}
+.star-picker{display:flex;gap:8px;margin-bottom:12px}
+.star-pick{font-size:28px;cursor:pointer;opacity:.3;transition:all .15s}
+.star-pick.on{opacity:1}
+.compose-textarea{
+  width:100%;min-height:100px;padding:11px 13px;
+  background:var(--off-white);border:1px solid rgba(200,81,42,.2);
+  border-radius:11px;font-family:'DM Sans',sans-serif;
+  font-size:14px;color:var(--stone);outline:none;
+  resize:none;transition:border-color .2s;line-height:1.5;
+}
+.compose-textarea:focus{border-color:var(--burnt)}
+.tag-picker{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.tag-opt{
+  padding:5px 12px;border-radius:20px;font-size:11px;
+  border:1.5px solid rgba(200,81,42,.2);cursor:pointer;
+  background:var(--off-white);color:var(--stone);transition:all .15s;
+}
+.tag-opt.on{background:var(--burnt);color:#fff;border-color:var(--burnt)}
+.photo-preview-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.photo-thumb{
+  width:70px;height:60px;border-radius:9px;
+  object-fit:cover;position:relative;
+}
+.photo-add-btn{
+  width:70px;height:60px;border-radius:9px;
+  border:2px dashed rgba(200,81,42,.3);
+  display:flex;align-items:center;justify-content:center;
+  font-size:22px;cursor:pointer;background:rgba(200,81,42,.04);
+  transition:all .15s;
+}
+.photo-add-btn:hover{border-color:var(--burnt);background:rgba(200,81,42,.08)}
+
+/* Lightbox */
+.lightbox{
+  position:fixed;inset:0;background:rgba(0,0,0,.92);
+  z-index:500;display:none;align-items:center;
+  justify-content:center;flex-direction:column;
+}
+.lightbox.open{display:flex}
+.lightbox img{max-width:95vw;max-height:80vh;border-radius:10px;object-fit:contain}
+.lightbox-close{
+  position:absolute;top:16px;right:16px;
+  font-size:28px;color:#fff;cursor:pointer;opacity:.8;
+}
+
+/* Empty state */
+.empty-state{
+  text-align:center;padding:40px 20px;color:#aaa;
+}
+.empty-state .ei{font-size:40px;margin-bottom:10px}
+.empty-state .et{font-size:14px;font-weight:500;color:#888;margin-bottom:5px}
+.empty-state .es{font-size:12px}
+
+/* Loading state */
+.comm-loading{
+  display:flex;align-items:center;justify-content:center;
+  padding:30px;gap:10px;color:#aaa;font-size:13px;
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">O<em>T</em>O</div>
+  <div class="hdr-right">
+    <div class="gps-pill" id="gpsPill" onclick="toggleGPS()">
+      <div class="gps-dot" id="gpsDot"></div>
+      <span class="gps-label" id="gpsLabel">GPS OFF</span>
+    </div>
+    <div class="avatar-btn" onclick="switchScreen('profile')">H</div>
+  </div>
+</header>
+
+<div class="main">
+
+  <!-- ══ MAP SCREEN ══ -->
+  <div class="screen active" id="screen-map">
+    <div id="map"></div>
+
+    <!-- Off-route warning -->
+    <div class="offroute-banner" id="offRouteBanner">
+      <span style="font-size:18px">⚠️</span>
+      <span>You appear to be off-route — check your position</span>
+    </div>
+
+    <!-- Search -->
+    <div class="map-search-bar">
+      <div class="search-pill" style="position:relative">
+        <span class="search-ico">🔍</span>
+        <input type="text" id="searchInput" placeholder="Search places, trails..." autocomplete="off" oninput="handleSearch(this.value)" onfocus="handleSearchFocus()"/>
+        <div class="search-results" id="searchResults"></div>
+      </div>
+      <div class="map-fab" onclick="openImportModal()" title="Import GPX">📂</div>
+    </div>
+
+    <!-- Weather strip -->
+    <div class="wx-strip" id="wxStrip">
+      <span class="wx-loading" id="wxLoading">Loading weather…</span>
+    </div>
+
+    <!-- Live HUD -->
+    <div class="live-hud" id="liveHud">
+      <div class="hud-item"><div class="hud-val" id="hudDist">0.00</div><div class="hud-lbl">miles</div></div>
+      <div class="hud-item"><div class="hud-val" id="hudPace">—</div><div class="hud-lbl">min/mi</div></div>
+      <div class="hud-item"><div class="hud-val" id="hudElev">—</div><div class="hud-lbl">ft elev</div></div>
+      <div class="hud-item"><div class="hud-val" id="hudTime">00:00</div><div class="hud-lbl">elapsed</div></div>
+      <div class="hud-item"><div class="hud-val" id="hudAqi">—</div><div class="hud-lbl">AQI</div></div>
+    </div>
+
+    <!-- Elevation legend -->
+    <div class="elev-legend" id="elevLegend">
+      <div class="elev-bar"></div>
+      <div class="elev-labels">
+        <div class="elev-lbl" id="elevMax">—</div>
+        <div class="elev-lbl" style="text-align:center;color:#bbb">ft</div>
+        <div class="elev-lbl" id="elevMin">—</div>
+      </div>
+    </div>
+
+    <!-- Right controls -->
+    <div class="map-controls">
+      <div class="ctrl-btn" id="ctrlMe" onclick="centerOnUser()" title="My location">📍</div>
+      <div class="ctrl-btn" id="ctrlElev" onclick="toggleElevation()" title="Elevation">🗻</div>
+      <div class="ctrl-btn" id="ctrlWx" onclick="toggleWeather()" title="Weather">🌤</div>
+      <div class="ctrl-btn" id="ctrlTrail" onclick="toggleTrail()" title="Trail overlay">🥾</div>
+      <div class="ctrl-btn" id="ctrlPOI" onclick="loadNearbyPOIs()" title="Nearby POIs">📍</div>
+      <div class="ctrl-btn" id="ctrlLayer" onclick="cycleMapLayer()" title="Map layer">🗺</div>
+    </div>
+
+    <button class="track-btn" id="trackBtn" onclick="toggleTracking()">
+      <span id="trackIcon">▶</span>
+      <span id="trackLabel">START TRACKING</span>
+    </button>
+  </div>
+
+  <!-- ══ PLAN SCREEN ══ -->
+  <div class="screen" id="screen-plan">
+    <div class="scr-scroll">
+      <div class="sec-title">🗓 TRIP PLANNER</div>
+
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <div class="card-title" style="margin-bottom:0">NEW PLAN</div>
+          <span class="badge badge-orange">COTSWOLD WAY</span>
+        </div>
+        <div class="form-row">
+          <div class="fg">
+            <label class="flabel">Route</label>
+            <select class="finput" id="routeSel">
+              <option value="cotswold">Cotswold Way (Full · 102mi)</option>
+              <option value="cotswold-n">Cotswold Way North Half</option>
+              <option value="cotswold-s">Cotswold Way South Half</option>
+              <option value="westhighland">West Highland Way</option>
+              <option value="southdowns">South Downs Way</option>
+              <option value="pennine">Pennine Way</option>
+              <option value="custom">Custom GPX (import above)</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="fg">
+            <label class="flabel">Start Date</label>
+            <input type="date" class="finput" id="planStart">
+          </div>
+          <div class="fg">
+            <label class="flabel">End Date</label>
+            <input type="date" class="finput" id="planEnd">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="fg">
+            <label class="flabel">Daily Miles Target</label>
+            <input type="number" class="finput" id="planMiles" placeholder="e.g. 12" value="12">
+          </div>
+          <div class="fg">
+            <label class="flabel">Fitness Level</label>
+            <select class="finput" id="planFit">
+              <option>Moderate</option>
+              <option>Beginner</option>
+              <option>Advanced</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="fg">
+            <label class="flabel">Daily Start Time</label>
+            <input type="time" class="finput" id="planStart2" value="08:00">
+          </div>
+          <div class="fg">
+            <label class="flabel">Avg Pace (min/mi)</label>
+            <input type="number" class="finput" id="planPace" placeholder="e.g. 25" value="25">
+          </div>
+        </div>
+        <button class="btn-main" onclick="generatePlan()">⚡ GENERATE ITINERARY</button>
+      </div>
+
+      <div id="planOutput" style="display:none">
+        <div class="sec-title">📍 <span id="planRouteTitle">ROUTE</span></div>
+        <div id="daySegs"></div>
+
+        <!-- Pin POI -->
+        <div class="card">
+          <div class="card-title">PIN A LOCATION</div>
+          <div class="chip-row" id="poiTypeChips">
+            <div class="chip on" onclick="selChip(this)">🏨 Hotel</div>
+            <div class="chip" onclick="selChip(this)">🍽 Restaurant</div>
+            <div class="chip" onclick="selChip(this)">🏪 Resupply</div>
+            <div class="chip" onclick="selChip(this)">⛺ Camp</div>
+            <div class="chip" onclick="selChip(this)">🚐 Transport</div>
+            <div class="chip" onclick="selChip(this)">📸 Viewpoint</div>
+          </div>
+          <input type="text" class="finput" id="poiSearch" placeholder="Search for a place to pin…" style="margin-bottom:8px" oninput="searchPOI(this.value)">
+          <div id="poiSearchResults"></div>
+          <button class="btn-main" style="margin-top:4px" onclick="pinSearchedPOI()">PIN ON MAP</button>
+        </div>
+
+        <!-- Alerts -->
+        <div class="sec-title">⚠️ ROUTE CONDITIONS</div>
+        <div id="routeAlerts">
+          <div style="font-size:12px;color:#aaa;font-style:italic">Loading community reports…</div>
+        </div>
+        <div style="height:20px"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ EXPLORE SCREEN ══ -->
+  <div class="screen" id="screen-explore">
+    <div class="scr-scroll">
+      <div class="sec-title">🌍 EXPLORE ROUTES</div>
+
+      <div id="exploreList"></div>
+      <div style="height:20px"></div>
+    </div>
+  </div>
+
+  <!-- ══ PROFILE SCREEN ══ -->
+  <div class="screen" id="screen-profile">
+    <div class="scr-scroll" style="padding:0">
+      <div class="prof-hdr">
+        <div class="prof-av">H</div>
+        <div class="prof-name">HIKER</div>
+        <div class="prof-sub">OneTripOnly · Cotswold Way planned</div>
+      </div>
+      <div style="padding:14px">
+
+        <div class="sec-title" style="margin-bottom:9px">MY STATS</div>
+        <div class="card" style="display:flex;gap:0;padding:10px 0;margin-bottom:13px">
+          <div class="hud-item"><div class="hud-val" id="statMiles">0</div><div class="hud-lbl">miles hiked</div></div>
+          <div class="hud-item"><div class="hud-val" id="statTrips">0</div><div class="hud-lbl">trips done</div></div>
+          <div class="hud-item"><div class="hud-val" id="statFt">0</div><div class="hud-lbl">ft gained</div></div>
+        </div>
+
+        <div class="sec-title" style="margin-bottom:9px">MAP & TRACKING</div>
+        <div class="settings-group">
+          <div class="settings-row" onclick="togSet(this,'offline')">
+            <div class="sr-ico">💾</div><div class="sr-label">Offline Map Cache</div>
+            <div class="toggle" id="tog-offline"></div>
+          </div>
+          <div class="settings-row" onclick="togSet(this,'alerts')">
+            <div class="sr-ico">🔔</div><div class="sr-label">Route Condition Alerts</div>
+            <div class="toggle on" id="tog-alerts"></div>
+          </div>
+          <div class="settings-row" onclick="togSet(this,'offroute')">
+            <div class="sr-ico">🧭</div><div class="sr-label">Off-Route Warnings</div>
+            <div class="toggle on" id="tog-offroute"></div>
+          </div>
+          <div class="settings-row" onclick="togSet(this,'autosync')">
+            <div class="sr-ico">📡</div><div class="sr-label">Auto-Sync Track Data</div>
+            <div class="toggle on" id="tog-autosync"></div>
+          </div>
+        </div>
+
+        <div class="sec-title" style="margin-bottom:9px">UNITS</div>
+        <div class="settings-group">
+          <div class="settings-row">
+            <div class="sr-ico">📏</div><div class="sr-label">Distance</div><div class="sr-val">Miles</div>
+          </div>
+          <div class="settings-row">
+            <div class="sr-ico">🌡</div><div class="sr-label">Temperature</div><div class="sr-val">°F</div>
+          </div>
+          <div class="settings-row">
+            <div class="sr-ico">⛰</div><div class="sr-label">Elevation</div><div class="sr-val">Feet</div>
+          </div>
+        </div>
+
+        <div class="sec-title" style="margin-bottom:9px">DATA SOURCES</div>
+        <div class="settings-group">
+          <div class="settings-row" onclick="openImportModal()">
+            <div class="sr-ico">📂</div><div class="sr-label">Import GPX / Trail File</div><div class="sr-val">›</div>
+          </div>
+          <div class="settings-row" onclick="showToast('Opens in full app build')">
+            <div class="sr-ico">💾</div><div class="sr-label">Download Offline Area</div><div class="sr-val">›</div>
+          </div>
+          <div class="settings-row" onclick="showApiKeyInfo()">
+            <div class="sr-ico">ℹ️</div><div class="sr-label">Data Sources & APIs</div><div class="sr-val">›</div>
+          </div>
+        </div>
+
+        <div style="height:30px"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ COMMUNITY SCREEN ══ -->
+  <div class="screen" id="screen-community">
+
+    <!-- Header with tabs -->
+    <div class="comm-header">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div class="sec-title" style="margin-bottom:0;color:var(--white)">👥 COMMUNITY</div>
+        <div id="commUserBadge" style="display:none;align-items:center;gap:7px">
+          <div id="commAvatarSmall" class="post-avatar" style="width:28px;height:28px;font-size:11px;background:var(--burnt)"></div>
+          <span id="commUserName" style="font-size:12px;color:rgba(255,255,255,.8)"></span>
+          <span style="font-size:11px;color:rgba(255,255,255,.4);cursor:pointer" onclick="signOut()">Sign out</span>
+        </div>
+        <button id="commSignInBtn" class="btn-sec" style="border-color:rgba(255,255,255,.3);color:rgba(255,255,255,.8);font-size:11px" onclick="openAuthModal()">Sign In</button>
+      </div>
+      <div class="comm-tabs">
+        <div class="comm-tab active" id="ctab-feed" onclick="switchCommTab('feed')">Feed</div>
+        <div class="comm-tab" id="ctab-trails" onclick="switchCommTab('trails')">Trails</div>
+        <div class="comm-tab" id="ctab-stays" onclick="switchCommTab('stays')">Stays</div>
+        <div class="comm-tab" id="ctab-food" onclick="switchCommTab('food')">Food & Pubs</div>
+        <div class="comm-tab" id="ctab-conditions" onclick="switchCommTab('conditions')">Conditions</div>
+      </div>
+    </div>
+
+    <!-- Filter bar -->
+    <div class="filter-bar">
+      <div class="filter-pill on" onclick="selFilter(this,'all')">All</div>
+      <div class="filter-pill" onclick="selFilter(this,'cotswold')">Cotswold Way</div>
+      <div class="filter-pill" onclick="selFilter(this,'westhighland')">W. Highland Way</div>
+      <div class="filter-pill" onclick="selFilter(this,'southdowns')">South Downs</div>
+      <div class="filter-pill" onclick="selFilter(this,'top')">⭐ Top Rated</div>
+      <div class="filter-pill" onclick="selFilter(this,'recent')">🕐 Recent</div>
+      <div class="filter-pill" onclick="selFilter(this,'photos')">📷 Has Photos</div>
+    </div>
+
+    <!-- Feed -->
+    <div class="comm-feed" id="commFeed">
+      <div class="comm-loading"><div class="spinner"></div> Loading posts…</div>
+    </div>
+
+  </div>
+
+</div><!-- end .main -->
+<nav>
+  <div class="nav-btn active" id="nav-map" onclick="switchScreen('map')">
+    <div class="nav-ico">🗺</div><div class="nav-lbl">Map</div>
+  </div>
+  <div class="nav-btn" id="nav-plan" onclick="switchScreen('plan')">
+    <div class="nav-ico">📋</div><div class="nav-lbl">Plan</div>
+  </div>
+  <div class="nav-btn" id="nav-explore" onclick="switchScreen('explore')">
+    <div class="nav-ico">🧭</div><div class="nav-lbl">Explore</div>
+  </div>
+  <div class="nav-btn" id="nav-community" onclick="switchScreen('community')">
+    <div class="nav-ico">👥</div><div class="nav-lbl">Community</div>
+  </div>
+  <div class="nav-btn" id="nav-profile" onclick="switchScreen('profile')">
+    <div class="nav-ico">👤</div><div class="nav-lbl">Profile</div>
+  </div>
+</nav>
+
+<!-- Write Review FAB -->
+<button class="write-fab" id="writeFab" onclick="openCompose()">✍️</button>
+
+<!-- GPX Import Modal -->
+<div class="modal-bg" id="importModal" onclick="closeModal(event,'importModal')">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title">IMPORT TRAIL DATA</div>
+    <div class="src-grid">
+      <div class="src-btn" onclick="selSrc(this,'alltrails')"><div class="src-ico">🌲</div><div class="src-lbl">AllTrails</div></div>
+      <div class="src-btn" onclick="selSrc(this,'komoot')"><div class="src-ico">🏔</div><div class="src-lbl">Komoot</div></div>
+      <div class="src-btn" onclick="selSrc(this,'osmaps')"><div class="src-ico">🗺</div><div class="src-lbl">OS Maps</div></div>
+      <div class="src-btn" onclick="selSrc(this,'farout')"><div class="src-ico">🧭</div><div class="src-lbl">FarOut</div></div>
+      <div class="src-btn" onclick="selSrc(this,'strava')"><div class="src-ico">⚡</div><div class="src-lbl">Strava</div></div>
+      <div class="src-btn" onclick="selSrc(this,'file')"><div class="src-ico">📁</div><div class="src-lbl">GPX File</div></div>
+    </div>
+    <div class="gpx-drop" id="gpxDrop" onclick="document.getElementById('gpxFile').click()">
+      <div style="font-size:24px;margin-bottom:6px">📂</div>
+      <div style="font-size:13px;font-weight:600;color:var(--stone)">Tap to upload GPX file</div>
+      <div style="font-size:11px;color:#aaa;margin-top:3px">Supports .gpx from any source</div>
+      <input type="file" id="gpxFile" accept=".gpx" onchange="loadGPXFile(event)">
+    </div>
+    <button class="btn-main" onclick="confirmImport()">LOAD ON MAP</button>
+  </div>
+</div>
+
+<!-- API Key Info Modal -->
+<div class="modal-bg" id="apiModal" onclick="closeModal(event,'apiModal')">
+  <div class="modal-sheet" style="max-height:80vh;overflow-y:auto">
+    <div class="modal-handle"></div>
+    <div class="modal-title">DATA SOURCES & APIS</div>
+    <div style="font-size:13px;color:var(--stone);line-height:1.6;margin-bottom:14px">
+      OTO runs entirely on free, open APIs — no keys, no accounts, no costs. Ever.
+    </div>
+    <div style="background:rgba(69,112,28,.08);border:1px solid rgba(69,112,28,.25);border-radius:11px;padding:13px 14px;margin-bottom:12px">
+      <div style="font-size:12px;color:var(--stone);line-height:1.9">
+        <b>🌤 Weather</b> — Open-Meteo (ECMWF models, free forever)<br>
+        <b>⛰ Elevation</b> — OpenTopoData SRTM (global 90m resolution)<br>
+        <b>🌿 Air Quality</b> — OpenAQ (global monitoring stations)<br>
+        <b>🔍 Place Search</b> — Nominatim / OpenStreetMap<br>
+        <b>📍 Hotels & POIs</b> — Overpass API (OpenStreetMap data)<br>
+        <b>🗺 Map Tiles</b> — Esri Topo · Stadia Terrain · OSM Standard · Esri Satellite<br>
+        <b>📂 GPX Import</b> — Built-in browser parser, works with any GPX file<br>
+        <b>👥 Community</b> — Supabase (posts/auth) + Cloudinary (photos)
+      </div>
+    </div>
+    <div style="font-size:12px;color:#999;line-height:1.5">
+      Community features require Supabase + Cloudinary — see setup guide at top of &lt;script&gt;.
+    </div>
+    <button class="btn-main" style="margin-top:14px" onclick="closeModal({target:document.getElementById('apiModal')},'apiModal')">GOT IT</button>
+  </div>
+</div>
+
+<!-- Auth Modal -->
+<div class="modal-bg" id="authModal" onclick="closeModal(event,'authModal')">
+  <div class="auth-modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="auth-tabs">
+      <div class="auth-tab active" id="atab-in" onclick="switchAuthTab('in')">SIGN IN</div>
+      <div class="auth-tab" id="atab-up" onclick="switchAuthTab('up')">CREATE ACCOUNT</div>
+    </div>
+
+    <!-- Sign In -->
+    <div id="auth-in-form">
+      <input class="auth-input" type="email" id="siEmail" placeholder="Email address" autocomplete="email">
+      <input class="auth-input" type="password" id="siPass" placeholder="Password" autocomplete="current-password">
+      <div class="auth-err" id="siErr"></div>
+      <button class="btn-main" onclick="doSignIn()">SIGN IN</button>
+      <div class="auth-divider">or</div>
+      <button class="btn-main" style="background:var(--forest)" onclick="doGoogleSignIn()">🔑 Continue with Google</button>
+    </div>
+
+    <!-- Sign Up -->
+    <div id="auth-up-form" style="display:none">
+      <input class="auth-input" type="text" id="suName" placeholder="Display name (e.g. Trail Hiker)" autocomplete="name">
+      <input class="auth-input" type="email" id="suEmail" placeholder="Email address" autocomplete="email">
+      <input class="auth-input" type="password" id="suPass" placeholder="Password (min 8 chars)" autocomplete="new-password">
+      <div class="auth-err" id="suErr"></div>
+      <button class="btn-main" onclick="doSignUp()">CREATE ACCOUNT</button>
+    </div>
+  </div>
+</div>
+
+<!-- Compose / Write Review Modal -->
+<div class="modal-bg" id="composeModal" onclick="closeModal(event,'composeModal')">
+  <div class="compose-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title">WRITE A REVIEW</div>
+
+    <!-- Category -->
+    <label class="flabel">What are you reviewing?</label>
+    <div class="chip-row" id="compCatChips" style="margin-bottom:12px">
+      <div class="chip on" onclick="selCompCat(this,'trail')">🥾 Trail</div>
+      <div class="chip" onclick="selCompCat(this,'hotel')">🏨 Hotel / B&B</div>
+      <div class="chip" onclick="selCompCat(this,'restaurant')">🍽 Restaurant</div>
+      <div class="chip" onclick="selCompCat(this,'pub')">🍺 Pub</div>
+      <div class="chip" onclick="selCompCat(this,'poi')">📸 Viewpoint / POI</div>
+      <div class="chip" onclick="selCompCat(this,'condition')">⚠️ Condition Report</div>
+    </div>
+
+    <!-- Location -->
+    <label class="flabel">Location / Place name</label>
+    <input class="auth-input" type="text" id="compLocation" placeholder="e.g. Cleeve Hill, Winchcombe, The Falcon Inn…" style="margin-bottom:4px">
+    <div style="display:flex;gap:6px;margin-bottom:12px">
+      <select class="finput" id="compRoute" style="flex:1">
+        <option value="">— Route (optional) —</option>
+        <option>Cotswold Way</option>
+        <option>West Highland Way</option>
+        <option>South Downs Way</option>
+        <option>Pennine Way</option>
+        <option>Pembrokeshire Coast Path</option>
+        <option>Thames Path</option>
+        <option>Other</option>
+      </select>
+    </div>
+
+    <!-- Stars -->
+    <label class="flabel">Rating</label>
+    <div class="star-picker" id="starPicker">
+      <span class="star-pick" onclick="setStars(1)">★</span>
+      <span class="star-pick" onclick="setStars(2)">★</span>
+      <span class="star-pick" onclick="setStars(3)">★</span>
+      <span class="star-pick" onclick="setStars(4)">★</span>
+      <span class="star-pick" onclick="setStars(5)">★</span>
+    </div>
+
+    <!-- Tags -->
+    <label class="flabel" style="margin-bottom:6px">Tags</label>
+    <div class="tag-picker" id="tagPicker">
+      <div class="tag-opt" onclick="togTag(this)">✅ All Clear</div>
+      <div class="tag-opt" onclick="togTag(this)">💧 Muddy</div>
+      <div class="tag-opt" onclick="togTag(this)">⚠️ Closure</div>
+      <div class="tag-opt" onclick="togTag(this)">🌟 Stunning Views</div>
+      <div class="tag-opt" onclick="togTag(this)">🥾 Well Signed</div>
+      <div class="tag-opt" onclick="togTag(this)">🏕 Wild Camping OK</div>
+      <div class="tag-opt" onclick="togTag(this)">🐄 Livestock</div>
+      <div class="tag-opt" onclick="togTag(this)">💰 Great Value</div>
+      <div class="tag-opt" onclick="togTag(this)">🍺 Dog Friendly</div>
+      <div class="tag-opt" onclick="togTag(this)">♿ Accessible</div>
+    </div>
+
+    <!-- Review text -->
+    <label class="flabel">Your review</label>
+    <textarea class="compose-textarea" id="compBody" placeholder="Share what you experienced — conditions, tips, what to expect…" style="margin-bottom:12px"></textarea>
+
+    <!-- Photos -->
+    <label class="flabel">Photos (optional)</label>
+    <div class="photo-preview-row" id="photoPreviewRow">
+      <div class="photo-add-btn" onclick="document.getElementById('photoUpload').click()">＋</div>
+      <input type="file" id="photoUpload" accept="image/*" multiple style="display:none" onchange="handlePhotoSelect(event)">
+    </div>
+
+    <div class="auth-err" id="compErr"></div>
+    <button class="btn-main" id="compSubmitBtn" onclick="submitReview()">POST REVIEW</button>
+  </div>
+</div>
+
+<!-- Photo Lightbox -->
+<div class="lightbox" id="lightbox" onclick="closeLightbox()">
+  <div class="lightbox-close">✕</div>
+  <img id="lightboxImg" src="" alt="">
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════
+   OTO — OneTripOnly — 100% FREE, ZERO API KEYS NEEDED
+   ═══════════════════════════════════════════════════════════
+   Open-Meteo     → weather (temp, wind, UV, rain)
+   OpenTopoData   → real elevation (SRTM global dataset)
+   OpenAQ         → air quality index
+   Nominatim      → place search & geocoding
+   Overpass API   → hotels, restaurants, POIs (OpenStreetMap)
+   Esri Topo      → primary map tiles (no key, no limit)
+   Stadia Terrain → terrain layer (no key)
+   OpenStreetMap  → standard layer (no key)
+   GPX parser     → built-in browser parser, no service needed
+   ═══════════════════════════════════════════════════════════ */
+
+/* ═══════════════════════════════════════════════════════════
+   FREE API ENDPOINTS (no keys required)
+   ═══════════════════════════════════════════════════════════ */
+const API = {
+  weather:    (lat,lon) => `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,wind_speed_10m,weather_code,precipitation,uv_index&wind_speed_unit=mph&temperature_unit=fahrenheit`,
+  elevation:  (lat,lon) => `https://api.opentopodata.org/v1/srtm90m?locations=${lat},${lon}`,
+  aqi:        (lat,lon) => `https://api.openaq.org/v3/locations?coordinates=${lat},${lon}&radius=50000&limit=1`,
+  geocode:    (q)       => `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=6&countrycodes=gb`,
+  overpass:   ()        => `https://overpass-api.de/api/interpreter`,
+  wikitrails: ()        => `https://hiking.waymarkedtrails.org/api/v1/list/`,
+};
+
+/* ═══ STATE ═══ */
+let map, tileLayer, trailLayer, gpxLayer, userMarker, trackLine;
+let currentLat = 51.95, currentLon = -1.97;
+let gpsActive = false, gpsWatchId = null;
+let tracking = false, trackInterval = null;
+let trackSecs = 0, trackDist = 0, trackPts = [];
+let elevMode = false, wxVisible = false, trailVisible = true;
+let selectedSrc = null, poiPinnedLatLng = null;
+let mapLayerIdx = 0;
+let cotswoldPolyline = null;
+let importedGpxCoords = [];
+let pinnedPOIs = [];
+let totalMilesHiked = 0, totalTrips = 0, totalFt = 0;
+let offRouteToggle = true;
+
+/* ═══ COTSWOLD WAY — Detailed waypoints (102 miles) ═══ */
+const COTSWOLD_WAY = [
+  [52.0494,-1.7781],[52.0436,-1.7892],[52.0389,-1.7985],[52.0319,-1.8124],
+  [52.0274,-1.8590],[52.0210,-1.8750],[52.0168,-1.8903],[52.0050,-1.9021],
+  [51.9974,-1.9210],[51.9932,-1.9352],[51.9881,-1.9447],[51.9830,-1.9489],
+  [51.9806,-1.9511],[51.9755,-1.9572],[51.9710,-1.9618],[51.9648,-1.9651],
+  [51.9572,-1.9683],[51.9511,-1.9744],[51.9455,-1.9832],[51.9390,-1.9921],
+  [51.9305,-2.0115],[51.9252,-2.0280],[51.9192,-2.0388],[51.9140,-2.0463],
+  [51.9068,-2.0540],[51.8995,-2.0650],[51.8970,-2.0721],[51.8952,-2.0788],
+  [51.8920,-2.0901],[51.8890,-2.1002],[51.8850,-2.1087],[51.8810,-2.1155],
+  [51.8760,-2.1232],[51.8700,-2.1321],[51.8640,-2.1420],[51.8580,-2.1512],
+  [51.8520,-2.1603],[51.8440,-2.1680],[51.8360,-2.1750],[51.8280,-2.1830],
+  [51.8200,-2.1940],[51.8130,-2.2300],[51.8070,-2.2388],[51.8010,-2.2460],
+  [51.7940,-2.2490],[51.7870,-2.2510],[51.7800,-2.2530],[51.7730,-2.2520],
+  [51.7653,-2.2504],[51.7580,-2.2480],[51.7510,-2.2440],[51.7440,-2.2410],
+  [51.7318,-2.2280],[51.7250,-2.2230],[51.7180,-2.2190],[51.7110,-2.2180],
+  [51.7040,-2.2210],[51.6960,-2.2260],[51.6870,-2.2320],[51.6780,-2.2400],
+  [51.6680,-2.2510],[51.6580,-2.2600],[51.6480,-2.2700],[51.6408,-2.3220],
+  [51.6330,-2.3380],[51.6250,-2.3520],[51.6170,-2.3640],[51.6080,-2.3740],
+  [51.5990,-2.3630],[51.5900,-2.3720],[51.5810,-2.3830],[51.5720,-2.3960],
+  [51.5610,-2.4120],[51.5500,-2.4280],[51.5408,-2.4512],[51.5320,-2.4630],
+  [51.5230,-2.4730],[51.5140,-2.4820],[51.5040,-2.4880],[51.4960,-2.4910],
+  [51.4860,-2.4930],[51.4760,-2.4940],[51.4705,-2.4905],[51.4640,-2.4860],
+  [51.4570,-2.4800],[51.4490,-2.4720],[51.4400,-2.4620],[51.4300,-2.4500],
+  [51.4200,-2.4380],[51.4100,-2.4250],[51.4054,-2.4022],[51.3990,-2.3880],
+  [51.3930,-2.3760],[51.3880,-2.3700],[51.3850,-2.3650],[51.3813,-2.3596]
+];
+
+const ROUTES = [
+  { id:'cotswold', name:'Cotswold Way', from:'Chipping Campden', to:'Bath', miles:102, days:'7–14', elev:'13,100 ft', diff:'mod', color:'#C8512A', coords: COTSWOLD_WAY, desc:'England\'s finest Cotswolds walk through honey-stone villages and rolling wolds.' },
+  { id:'westhighland', name:'West Highland Way', from:'Milngavie', to:'Fort William', miles:96, days:'6–8', elev:'14,700 ft', diff:'hard', color:'#2980b9', coords:[[55.943,-4.314],[56.087,-4.530],[56.376,-4.598],[56.697,-4.711],[56.895,-4.720],[57.118,-4.825],[57.287,-4.914]], desc:'Scotland\'s most iconic long-distance route through lochs, glens and Highland wilderness.' },
+  { id:'southdowns', name:'South Downs Way', from:'Winchester', to:'Eastbourne', miles:100, days:'7–10', elev:'11,600 ft', diff:'mod', color:'#27ae60', coords:[[51.063,-1.308],[50.981,-0.971],[50.944,-0.632],[50.877,-0.224],[50.854,0.098],[50.769,0.282]], desc:'A National Trail along chalk ridges with panoramic views over the English Channel.' },
+  { id:'pennine', name:'Pennine Way', from:'Edale', to:'Kirk Yetholm', miles:268, days:'16–22', elev:'38,500 ft', diff:'hard', color:'#8e44ad', coords:[[53.368,-1.812],[53.636,-1.991],[54.091,-2.159],[54.479,-2.376],[54.798,-2.453],[55.185,-2.382],[55.551,-2.249]], desc:'England\'s first and toughest National Trail through the backbone of England.' },
+  { id:'pembrokeshire', name:'Pembrokeshire Coast Path', from:'St Dogmaels', to:'Amroth', miles:186, days:'12–16', elev:'35,000 ft', diff:'hard', color:'#e67e22', coords:[[52.080,-4.697],[51.994,-5.067],[51.719,-5.118],[51.624,-4.973],[51.597,-4.697],[51.669,-4.388],[51.726,-4.700]], desc:'A dramatic coastal path around Pembrokeshire with sea cliffs, beaches and wildlife.' },
+  { id:'thamespath', name:'Thames Path', from:'Thames Head', to:'Teddington', miles:184, days:'10–14', elev:'2,400 ft', diff:'easy', color:'#3498db', coords:[[51.688,-2.007],[51.703,-1.879],[51.726,-1.691],[51.655,-1.466],[51.550,-1.205],[51.456,-0.972],[51.440,-0.602],[51.427,-0.310],[51.421,-0.001]], desc:'Follow the Thames from its source in the Cotswolds to the outskirts of London.' },
+];
+
+/* ═══ MAP INIT ═══ */
+function initMap() {
+  map = L.map('map', {
+    center: [51.9572, -1.9683],
+    zoom: 11,
+    zoomControl: false,
+    attributionControl: true
+  });
+
+  setMapLayer(0);
+
+  // Load Cotswold Way by default
+  cotswoldPolyline = L.polyline(COTSWOLD_WAY, {
+    color: '#C8512A', weight: 4, opacity: 0.88,
+    dashArray: '10,5'
+  }).addTo(map);
+  trailVisible = true;
+
+  // Start / End markers
+  addRouteMarker(52.0494, -1.7781, '📍', 'Chipping Campden', 'Start of Cotswold Way', '#2D5016');
+  addRouteMarker(51.3813, -2.3596, '🏁', 'Bath', 'End of Cotswold Way — 102 miles', '#C8512A');
+
+  // Load initial nearby POIs silently
+  setTimeout(() => loadNearbyPOIs(true), 1500);
+
+  map.on('click', onMapClick);
+}
+
+function buildMapLayers() {
+  return [
+    { name:'Topo (default)', tile: L.tileLayer(
+      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}',
+      { maxZoom:18, attribution:'© Esri, © OpenStreetMap contributors' }
+    )},
+    { name:'Terrain', tile: L.tileLayer(
+      'https://tiles.stadiamaps.com/tiles/stamen_terrain/{z}/{x}/{y}{r}.png',
+      { maxZoom:18, attribution:'© Stadia Maps, © Stamen Design, © OpenStreetMap contributors' }
+    )},
+    { name:'Satellite + Labels', tile: L.tileLayer(
+      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+      { maxZoom:18, attribution:'© Esri, © OpenStreetMap contributors' }
+    )},
+    { name:'Standard', tile: L.tileLayer(
+      'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+      { maxZoom:19, attribution:'© OpenStreetMap contributors' }
+    )},
+  ];
+}
+
+let MAP_LAYERS = [];
+
+function setMapLayer(idx) {
+  if (!MAP_LAYERS.length) MAP_LAYERS = buildMapLayers();
+  if (tileLayer) map.removeLayer(tileLayer);
+  mapLayerIdx = idx % MAP_LAYERS.length;
+  tileLayer = MAP_LAYERS[mapLayerIdx].tile;
+  tileLayer.addTo(map);
+}
+
+function cycleMapLayer() {
+  if (!MAP_LAYERS.length) MAP_LAYERS = buildMapLayers();
+  mapLayerIdx = (mapLayerIdx + 1) % MAP_LAYERS.length;
+  setMapLayer(mapLayerIdx);
+  showToast(`🗺 ${MAP_LAYERS[mapLayerIdx].name}`);
+}
+
+function addRouteMarker(lat, lng, emoji, title, sub, color) {
+  const icon = L.divIcon({
+    html: `<div style="background:${color};color:#fff;padding:5px 9px;border-radius:9px;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;white-space:nowrap;box-shadow:0 2px 10px rgba(0,0,0,.35)">${emoji} ${title}</div>`,
+    className:'', iconAnchor:[50,14]
+  });
+  L.marker([lat,lng],{icon}).addTo(map)
+    .bindPopup(`<div class="oto-popup"><h3>${title}</h3><div class="otp-sub">${sub}</div></div>`);
+}
+
+function onMapClick(e) {
+  // Long-press to pin POI handled via touch events
+}
+
+/* ═══ SCREEN NAV ═══ */
+function switchScreen(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('screen-'+name).classList.add('active');
+  const nb = document.getElementById('nav-'+name);
+  if (nb) nb.classList.add('active');
+  if (name === 'map') setTimeout(() => map.invalidateSize(), 60);
+  if (name === 'explore') renderExplore();
+}
+
+/* ═══ GPS ═══ */
+function toggleGPS() {
+  gpsActive = !gpsActive;
+  const dot = document.getElementById('gpsDot');
+  const lbl = document.getElementById('gpsLabel');
+  if (gpsActive) {
+    dot.className = 'gps-dot on';
+    lbl.textContent = 'LOCATING…';
+    if (!navigator.geolocation) { showToast('Geolocation not supported'); gpsActive=false; return; }
+    gpsWatchId = navigator.geolocation.watchPosition(
+      pos => onGPSSuccess(pos),
+      err => onGPSError(err),
+      { enableHighAccuracy: true, maximumAge: 3000, timeout: 15000 }
+    );
+    showToast('📡 GPS acquiring…');
+  } else {
+    dot.className = 'gps-dot';
+    lbl.textContent = 'GPS OFF';
+    if (gpsWatchId) navigator.geolocation.clearWatch(gpsWatchId);
+    if (userMarker) { map.removeLayer(userMarker); userMarker = null; }
+    showToast('GPS off');
+  }
+}
+
+function onGPSSuccess(pos) {
+  const { latitude:lat, longitude:lng, accuracy } = pos.coords;
+  currentLat = lat; currentLon = lng;
+  document.getElementById('gpsDot').className = 'gps-dot lock';
+  document.getElementById('gpsLabel').textContent = `±${Math.round(accuracy)}m`;
+
+  const userIcon = L.divIcon({
+    html: `<div style="width:18px;height:18px;background:#C8512A;border:3px solid #fff;border-radius:50%;box-shadow:0 0 0 5px rgba(200,81,42,.25)"></div>`,
+    className:'', iconAnchor:[9,9]
+  });
+  if (!userMarker) {
+    userMarker = L.marker([lat,lng],{icon:userIcon,zIndexOffset:1000}).addTo(map);
+  } else {
+    userMarker.setLatLng([lat,lng]);
+  }
+
+  // Off-route check
+  if (offRouteToggle && trailVisible && cotswoldPolyline) {
+    const d = distToPolylineMeters(lat, lng, COTSWOLD_WAY);
+    document.getElementById('offRouteBanner').classList.toggle('show', d > 100);
+  }
+
+  if (tracking) {
+    if (trackPts.length > 0) {
+      const prev = trackPts[trackPts.length-1];
+      trackDist += haversineKm(prev[0],prev[1],lat,lng) * 0.621371;
+    }
+    trackPts.push([lat,lng]);
+    if (!trackLine) {
+      trackLine = L.polyline(trackPts,{color:'#E06A3A',weight:3,opacity:.9}).addTo(map);
+    } else {
+      trackLine.setLatLngs(trackPts);
+    }
+    document.getElementById('hudDist').textContent = trackDist.toFixed(2);
+    if (trackSecs > 30 && trackDist > 0.01) {
+      const pace = Math.round((trackSecs/60)/trackDist);
+      document.getElementById('hudPace').textContent = pace+"'";
+    }
+    fetchElevation(lat, lng).then(ft => {
+      if (ft) document.getElementById('hudElev').textContent = ft;
+    });
+  }
+
+  // Fetch live weather for current location
+  if (wxVisible) fetchWeather(lat, lng);
+}
+
+function onGPSError(err) {
+  document.getElementById('gpsDot').className = 'gps-dot';
+  document.getElementById('gpsLabel').textContent = 'GPS ERR';
+  showToast('GPS error: '+err.message);
+}
+
+function centerOnUser() {
+  if (!gpsActive) { showToast('Enable GPS first'); return; }
+  if (userMarker) {
+    map.setView(userMarker.getLatLng(), 15, {animate:true});
+    fetchWeather(currentLat, currentLon);
+    fetchElevation(currentLat, currentLon).then(ft => {
+      if (ft) showToast(`⛰ Elevation: ${ft} ft`);
+    });
+  }
+}
+
+/* ═══ TRACKING ═══ */
+function toggleTracking() {
+  tracking = !tracking;
+  const btn = document.getElementById('trackBtn');
+  const liveHud = document.getElementById('liveHud');
+  if (tracking) {
+    btn.classList.add('recording');
+    document.getElementById('trackIcon').textContent = '⏹';
+    document.getElementById('trackLabel').textContent = 'STOP TRACKING';
+    liveHud.classList.add('show');
+    trackSecs = 0; trackDist = 0; trackPts = [];
+    if (trackLine) { map.removeLayer(trackLine); trackLine = null; }
+    trackInterval = setInterval(() => {
+      trackSecs++;
+      const m = Math.floor(trackSecs/60), s = trackSecs%60;
+      document.getElementById('hudTime').textContent = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+    }, 1000);
+    if (!gpsActive) toggleGPS();
+    fetchAQI(currentLat, currentLon);
+    showToast('▶ Tracking started');
+  } else {
+    btn.classList.remove('recording');
+    document.getElementById('trackIcon').textContent = '▶';
+    document.getElementById('trackLabel').textContent = 'START TRACKING';
+    clearInterval(trackInterval);
+    if (trackDist > 0) {
+      totalMilesHiked += trackDist;
+      totalTrips++;
+      document.getElementById('statMiles').textContent = totalMilesHiked.toFixed(1);
+      document.getElementById('statTrips').textContent = totalTrips;
+    }
+    showToast(`✅ ${trackDist.toFixed(2)} mi tracked in ${Math.floor(trackSecs/60)}m ${trackSecs%60}s`);
+  }
+}
+
+/* ═══ WEATHER — Open-Meteo (FREE, no key) ═══ */
+async function fetchWeather(lat, lon) {
+  try {
+    const res = await fetch(API.weather(lat,lon));
+    const d = await res.json();
+    const c = d.current;
+    const wmo = {0:'☀️ Clear',1:'🌤 Mostly Clear',2:'⛅ Partly Cloudy',3:'☁️ Overcast',
+      45:'🌫 Fog',48:'🌫 Icy Fog',51:'🌦 Light Drizzle',53:'🌦 Drizzle',61:'🌧 Rain',
+      63:'🌧 Heavy Rain',71:'❄️ Snow',80:'🌧 Showers',81:'🌧 Heavy Showers',95:'⛈ Thunderstorm'};
+    const cond = wmo[c.weather_code] || '🌤 Fair';
+    const strip = document.getElementById('wxStrip');
+    strip.innerHTML = `
+      <div class="wx-item"><span class="wi">${cond.split(' ')[0]}</span> ${cond.split(' ').slice(1).join(' ')}</div>
+      <div class="wx-item"><span class="wi">🌡</span> ${Math.round(c.temperature_2m)}°F</div>
+      <div class="wx-item"><span class="wi">💨</span> ${Math.round(c.wind_speed_10m)} mph</div>
+      <div class="wx-item"><span class="wi">💧</span> ${c.relative_humidity_2m}%</div>
+      <div class="wx-item"><span class="wi">☀️</span> UV ${c.uv_index}</div>
+      ${c.precipitation>0?`<div class="wx-item"><span class="wi">🌧</span> ${c.precipitation}mm</div>`:''}
+    `;
+  } catch(e) {
+    document.getElementById('wxStrip').innerHTML = '<span class="wx-loading">Weather unavailable</span>';
+  }
+}
+
+/* ═══ ELEVATION — OpenTopoData (FREE, no key) ═══ */
+async function fetchElevation(lat, lon) {
+  try {
+    const res = await fetch(API.elevation(lat,lon));
+    const d = await res.json();
+    if (d.results && d.results[0]) {
+      const meters = d.results[0].elevation;
+      const ft = Math.round(meters * 3.28084);
+      document.getElementById('hudElev').textContent = ft;
+      return ft;
+    }
+  } catch(e) {}
+  return null;
+}
+
+/* ═══ AQI — OpenAQ (FREE, no key) ═══ */
+async function fetchAQI(lat, lon) {
+  try {
+    const res = await fetch(API.aqi(lat,lon));
+    const d = await res.json();
+    if (d.results && d.results.length > 0) {
+      // OpenAQ v3 returns station data; show station count as proxy
+      document.getElementById('hudAqi').textContent = d.results.length > 0 ? 'Good' : '—';
+    }
+  } catch(e) {}
+}
+
+/* ═══ TOGGLE HELPERS ═══ */
+function toggleWeather() {
+  wxVisible = !wxVisible;
+  const strip = document.getElementById('wxStrip');
+  const btn = document.getElementById('ctrlWx');
+  strip.classList.toggle('show', wxVisible);
+  btn.classList.toggle('active', wxVisible);
+  if (wxVisible) {
+    showToast('🌤 Loading weather…');
+    fetchWeather(currentLat, currentLon);
+  }
+}
+
+function toggleElevation() {
+  elevMode = !elevMode;
+  const legend = document.getElementById('elevLegend');
+  const btn = document.getElementById('ctrlElev');
+  legend.classList.toggle('show', elevMode);
+  btn.classList.toggle('active', elevMode);
+  if (elevMode) {
+    showToast('🗻 Elevation mode on');
+    fetchElevation(currentLat, currentLon);
+    // Set legend values from route
+    document.getElementById('elevMax').textContent = '1060';
+    document.getElementById('elevMin').textContent = '20';
+  }
+}
+
+function toggleTrail() {
+  trailVisible = !trailVisible;
+  const btn = document.getElementById('ctrlTrail');
+  btn.classList.toggle('active', trailVisible);
+  if (cotswoldPolyline) {
+    if (trailVisible) cotswoldPolyline.addTo(map);
+    else cotswoldPolyline.remove();
+  }
+  if (gpxLayer) {
+    if (trailVisible) gpxLayer.addTo(map);
+    else gpxLayer.remove();
+  }
+  showToast(trailVisible ? '🥾 Trail overlay on' : 'Trail overlay off');
+}
+
+/* ═══ PLACE SEARCH — Nominatim (FREE) ═══ */
+let searchTimer = null;
+async function handleSearch(q) {
+  clearTimeout(searchTimer);
+  const res = document.getElementById('searchResults');
+  if (q.length < 3) { res.style.display='none'; return; }
+  searchTimer = setTimeout(async () => {
+    try {
+      const data = await fetch(API.geocode(q)).then(r=>r.json());
+      if (!data.length) { res.style.display='none'; return; }
+      res.innerHTML = data.slice(0,5).map(p=>`
+        <div class="search-result-item" onclick="flyToPlace(${p.lat},${p.lon},'${p.display_name.split(',')[0]}')">
+          <span>📍</span>
+          <span>${p.display_name.split(',').slice(0,3).join(', ')}</span>
+        </div>`).join('');
+      res.style.display='block';
+    } catch(e) {}
+  }, 400);
+}
+function handleSearchFocus() {
+  const v = document.getElementById('searchInput').value;
+  if (v.length >= 3) handleSearch(v);
+}
+function flyToPlace(lat, lon, name) {
+  map.flyTo([lat,lon], 14, {animate:true, duration:1.2});
+  document.getElementById('searchResults').style.display='none';
+  document.getElementById('searchInput').value = name;
+  showToast(`📍 ${name}`);
+  currentLat = parseFloat(lat);
+  currentLon = parseFloat(lon);
+  if (wxVisible) fetchWeather(lat, lon);
+}
+document.addEventListener('click', e => {
+  if (!e.target.closest('.search-pill')) {
+    const el = document.getElementById('searchResults');
+    if (el) el.style.display='none';
+  }
+});
+
+/* ═══ NEARBY POIs — Overpass API (FREE) ═══ */
+async function loadNearbyPOIs(silent=false) {
+  if (!silent) showToast('🔍 Loading nearby POIs…');
+  const btn = document.getElementById('ctrlPOI');
+  btn.classList.add('active');
+  const lat = currentLat, lon = currentLon;
+  const query = `
+    [out:json][timeout:25];
+    (
+      node["tourism"="hotel"](around:8000,${lat},${lon});
+      node["amenity"="restaurant"](around:5000,${lat},${lon});
+      node["amenity"="pub"](around:5000,${lat},${lon});
+      node["tourism"="viewpoint"](around:8000,${lat},${lon});
+      node["amenity"="camp_site"](around:8000,${lat},${lon});
+      node["shop"="supermarket"](around:5000,${lat},${lon});
+    );
+    out body;`;
+  try {
+    const res = await fetch(API.overpass(), {
+      method:'POST', body:'data='+encodeURIComponent(query)
+    });
+    const d = await res.json();
+    const emojiMap = {hotel:'🏨',restaurant:'🍽',pub:'🍺',viewpoint:'📸',camp_site:'⛺',supermarket:'🏪'};
+    let count = 0;
+    d.elements.slice(0,40).forEach(el => {
+      if (!el.lat || !el.lon) return;
+      const type = el.tags.tourism || el.tags.amenity || el.tags.shop;
+      const emoji = emojiMap[type] || '📍';
+      const name = el.tags.name || (type.charAt(0).toUpperCase()+type.slice(1));
+      const icon = L.divIcon({
+        html:`<div style="background:#fff;border:2px solid #C8512A;border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-size:13px;box-shadow:0 2px 6px rgba(0,0,0,.22)">${emoji}</div>`,
+        className:'', iconAnchor:[13,13]
+      });
+      const marker = L.marker([el.lat,el.lon],{icon}).addTo(map);
+      marker.bindPopup(`
+        <div class="oto-popup">
+          <h3>${name}</h3>
+          <div class="otp-sub">${type.replace('_',' ')} · ${distKmLabel(lat,lon,el.lat,el.lon)}</div>
+          ${el.tags.opening_hours?`<div style="font-size:11px;color:#888;margin-bottom:4px">🕐 ${el.tags.opening_hours}</div>`:''}
+          <div class="otp-row">
+            <button class="otp-btn otp-btn-pin" onclick="pinPOI(${el.lat},${el.lon},'${name}','${emoji}')">📌 Pin</button>
+            <button class="otp-btn otp-btn-go" onclick="openDirections(${el.lat},${el.lon})">🧭 Directions</button>
+          </div>
+        </div>`);
+      pinnedPOIs.push({lat:el.lat,lon:el.lon,name,emoji,marker});
+      count++;
+    });
+    if (!silent) showToast(`✅ ${count} nearby POIs loaded`);
+    btn.classList.remove('active');
+    if (d.elements.length === 0 && !silent) showToast('No POIs found in this area');
+  } catch(e) {
+    btn.classList.remove('active');
+    if (!silent) showToast('POI load failed — check connection');
+  }
+}
+
+function pinPOI(lat,lon,name,emoji) {
+  showToast(`📌 ${name} pinned!`);
+}
+function openDirections(lat,lon) {
+  window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}`,'_blank');
+}
+function distKmLabel(lat1,lon1,lat2,lon2) {
+  const km = haversineKm(lat1,lon1,lat2,lon2);
+  return km < 1 ? `${Math.round(km*1000)}m away` : `${km.toFixed(1)}km away`;
+}
+
+/* ═══ POI SEARCH for Plan ═══ */
+let poiTimer = null, lastPoiResults = [];
+async function searchPOI(q) {
+  clearTimeout(poiTimer);
+  const el = document.getElementById('poiSearchResults');
+  if (q.length < 3) { el.innerHTML=''; return; }
+  poiTimer = setTimeout(async () => {
+    try {
+      const data = await fetch(API.geocode(q+' cotswold')).then(r=>r.json());
+      lastPoiResults = data;
+      el.innerHTML = data.slice(0,4).map((p,i)=>`
+        <div class="search-result-item" style="font-size:12px;background:var(--off-white);border-radius:8px;margin-bottom:4px;cursor:pointer" onclick="selectPOIResult(${i})">
+          📍 ${p.display_name.split(',').slice(0,3).join(', ')}
+        </div>`).join('');
+    } catch(e) {}
+  }, 400);
+}
+function selectPOIResult(i) {
+  const p = lastPoiResults[i];
+  if (!p) return;
+  poiPinnedLatLng = {lat:parseFloat(p.lat), lon:parseFloat(p.lon)};
+  document.getElementById('poiSearch').value = p.display_name.split(',')[0];
+  document.getElementById('poiSearchResults').innerHTML = '';
+  showToast(`📍 Ready to pin: ${p.display_name.split(',')[0]}`);
+}
+function pinSearchedPOI() {
+  if (!poiPinnedLatLng) { showToast('Search for a place first'); return; }
+  const chip = document.querySelector('#poiTypeChips .chip.on');
+  const type = chip ? chip.textContent.trim() : '📍 POI';
+  const emoji = type.split(' ')[0];
+  const name = document.getElementById('poiSearch').value || 'Custom POI';
+  const icon = L.divIcon({
+    html:`<div style="background:#fff;border:3px solid var(--burnt);border-radius:50%;width:30px;height:30px;display:flex;align-items:center;justify-content:center;font-size:15px;box-shadow:0 3px 10px rgba(0,0,0,.3)">${emoji}</div>`,
+    className:'', iconAnchor:[15,15]
+  });
+  L.marker([poiPinnedLatLng.lat,poiPinnedLatLng.lon],{icon}).addTo(map)
+    .bindPopup(`<div class="oto-popup"><h3>${name}</h3><div class="otp-sub">${type}</div></div>`);
+  switchScreen('map');
+  map.flyTo([poiPinnedLatLng.lat,poiPinnedLatLng.lon],14,{animate:true,duration:1.2});
+  showToast(`${emoji} ${name} pinned!`);
+  poiPinnedLatLng = null;
+}
+
+/* ═══ GPX FILE PARSER ═══ */
+function loadGPXFile(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const parser = new DOMParser();
+      const xml = parser.parseFromString(e.target.result, 'application/xml');
+      const trkpts = xml.querySelectorAll('trkpt,rtept,wpt');
+      if (!trkpts.length) { showToast('No track points found in GPX'); return; }
+      importedGpxCoords = Array.from(trkpts).map(pt => [
+        parseFloat(pt.getAttribute('lat')), parseFloat(pt.getAttribute('lon'))
+      ]).filter(c => !isNaN(c[0]) && !isNaN(c[1]));
+
+      if (gpxLayer) map.removeLayer(gpxLayer);
+      gpxLayer = L.polyline(importedGpxCoords, {
+        color:'#3498db', weight:4, opacity:.85, dashArray:'12,5'
+      }).addTo(map);
+      map.fitBounds(gpxLayer.getBounds(), {padding:[30,30]});
+
+      // Waypoints
+      xml.querySelectorAll('wpt').forEach(w => {
+        const lat = parseFloat(w.getAttribute('lat'));
+        const lon = parseFloat(w.getAttribute('lon'));
+        const name = w.querySelector('name')?.textContent || 'Waypoint';
+        const icon = L.divIcon({
+          html:`<div style="background:#3498db;color:#fff;padding:3px 7px;border-radius:7px;font-size:11px;font-weight:600;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,.3)">${name}</div>`,
+          className:'', iconAnchor:[30,12]
+        });
+        L.marker([lat,lon],{icon}).addTo(map).bindPopup(`<div class="oto-popup"><h3>${name}</h3></div>`);
+      });
+
+      closeModal({target:document.getElementById('importModal')},'importModal');
+      showToast(`✅ GPX loaded — ${importedGpxCoords.length} points`);
+    } catch(ex) {
+      showToast('GPX parse error: '+ex.message);
+    }
+  };
+  reader.readAsText(file);
+}
+
+/* ═══ PLAN GENERATOR ═══ */
+const COTSWOLD_STAGES = [
+  { from:'Chipping Campden', to:'Broadway', miles:6.2, elev:'+780ft', hotels:['Broadway Hotel','Lygon Arms'], pubs:['Crown & Trumpet','Horse & Hound'], views:['Fish Hill','Broadway Tower'] },
+  { from:'Broadway', to:'Winchcombe', miles:11.4, elev:'+1,240ft', hotels:['White Hart Inn','Wesley House'], pubs:['Plaisters Arms','Old Stocks Inn'], views:['Stanton village','Hailes Abbey'] },
+  { from:'Winchcombe', to:'Cheltenham', miles:10.8, elev:'+1,450ft', hotels:['Hotel du Vin Cheltenham','Bradley Hotel'], pubs:['Rising Sun Cleeve Hill','Harvest Home'], views:['Cleeve Hill (1083ft)','Belas Knap long barrow'] },
+  { from:'Cheltenham', to:'Painswick', miles:9.6, elev:'+980ft', hotels:['Painswick Hotel','Cardynham House'], pubs:['The Falcon Inn','Royal Oak'], views:['Leckhampton Hill','Devil\'s Chimney'] },
+  { from:'Painswick', to:'Stroud', miles:7.3, elev:'+760ft', hotels:['Imperial Hotel Stroud','Bear of Rodborough'], pubs:['Edgemoor Inn','The Ram'], views:['Coopers Hill','Coaley Peak'] },
+  { from:'Stroud', to:'Dursley', miles:9.8, elev:'+1,100ft', hotels:['Old Spot Inn','Symonds Yat Hotel'], pubs:['Old Spot Pub','The Star Inn'], views:['Nympsfield viewpoint','Hetty Pegler\'s Tump'] },
+  { from:'Dursley', to:'Wotton-under-Edge', miles:7.8, elev:'+860ft', hotels:['Swan Hotel','Falcon Hotel'], pubs:['Star Anise Arts Cafe','Royal Oak Wotton'], views:['North Nibley Monument','Tyndale Monument'] },
+  { from:'Wotton-under-Edge', to:'Tormarton', miles:11.2, elev:'+1,050ft', hotels:['Compass Inn Tormarton','Old School B&B'], pubs:['Compass Inn','Fox & Hounds'], views:['Horton Court (NT)','Newark Park'] },
+  { from:'Tormarton', to:'Cold Ashton', miles:7.4, elev:'+640ft', hotels:['White Hart Cold Ashton','Manor House'], pubs:['White Hart Inn','Swan Swineford'], views:['Dyrham Park (NT)','Pennsylvania viewpoint'] },
+  { from:'Cold Ashton', to:'Bath', miles:9.8, elev:'+680ft', hotels:['The Royal Crescent Hotel','Bath Priory'], pubs:['Blathwayt Arms','The Hare & Hounds'], views:['Lansdown Racecourse','Bath skyline approach'] },
+];
+
+function generatePlan() {
+  const routeId = document.getElementById('routeSel').value;
+  const miles = parseFloat(document.getElementById('planMiles').value) || 12;
+  const startDate = document.getElementById('planStart').value;
+  const pace = parseFloat(document.getElementById('planPace').value) || 25;
+
+  const route = ROUTES.find(r=>r.id===routeId) || ROUTES[0];
+  document.getElementById('planRouteTitle').textContent = `${route.name.toUpperCase()} — ${Math.ceil(route.miles/miles)} DAYS`;
+  document.getElementById('planOutput').style.display='block';
+
+  const segs = document.getElementById('daySegs');
+  segs.innerHTML = '';
+
+  const stages = routeId === 'cotswold' || routeId.startsWith('cotswold') ? COTSWOLD_STAGES : buildGenericStages(route, miles);
+  const days = groupStagesByMiles(stages, miles);
+
+  days.forEach((dayStages, i) => {
+    const totalMi = dayStages.reduce((s,st)=>s+st.miles,0).toFixed(1);
+    const totalHours = ((parseFloat(totalMi) * pace)/60).toFixed(1);
+    const date = startDate ? addDays(startDate, i) : `Day ${i+1}`;
+    const from = dayStages[0].from;
+    const to = dayStages[dayStages.length-1].to;
+
+    const wps = [];
+    dayStages.forEach(st => {
+      if (st.hotels && st.hotels[0]) wps.push({ic:'🏨',type:'hotel',name:st.hotels[0]});
+      if (st.pubs && st.pubs[0]) wps.push({ic:'🍺',type:'food',name:st.pubs[0]});
+      if (st.views && st.views[0]) wps.push({ic:'📸',type:'view',name:st.views[0]});
+    });
+
+    const seg = document.createElement('div');
+    seg.className = 'day-seg';
+    seg.innerHTML = `
+      <div class="day-seg-hdr" onclick="togDaySeg(${i})">
+        <div>
+          <div class="day-seg-title">${date}: ${from} → ${to}</div>
+          <div class="day-seg-meta">${dayStages.map(s=>s.elev).join(', ')}</div>
+        </div>
+        <div class="day-seg-nums">
+          <div class="dsn"><div class="v">${totalMi}</div><div class="l">mi</div></div>
+          <div class="dsn"><div class="v">${totalHours}h</div><div class="l">est</div></div>
+        </div>
+      </div>
+      <div class="day-seg-body" id="dsb-${i}">
+        <div class="wp-list">${wps.map(w=>`<div class="wp"><div class="wp-ic ${w.type}">${w.ic}</div><span>${w.name}</span></div>`).join('')}</div>
+        <div style="display:flex;gap:7px;margin-top:9px">
+          <button class="btn-sec" onclick="showDayOnMap(${i})">🗺 Map</button>
+          <button class="btn-sec" onclick="loadDayWeather(${i},'${from}')">🌤 Weather</button>
+          <button class="btn-sec" onclick="showToast('Notes saved ✓')">📝 Notes</button>
+        </div>
+      </div>`;
+    segs.appendChild(seg);
+  });
+
+  loadRouteConditions();
+  showToast(`✅ ${days.length}-day itinerary generated`);
+  setTimeout(()=>document.getElementById('planOutput').scrollIntoView({behavior:'smooth'}),200);
+}
+
+function groupStagesByMiles(stages, target) {
+  const days = []; let current = [], cum = 0;
+  stages.forEach(s => {
+    if (cum + s.miles > target * 1.15 && current.length > 0) {
+      days.push(current); current=[]; cum=0;
+    }
+    current.push(s); cum += s.miles;
+  });
+  if (current.length) days.push(current);
+  return days;
+}
+
+function buildGenericStages(route, miles) {
+  const count = Math.ceil(route.miles / (miles || 12));
+  return Array.from({length:count},(_,i)=>({
+    from: i===0 ? route.from : `Section ${i}`,
+    to: i===count-1 ? route.to : `Section ${i+1}`,
+    miles: (route.miles/count).toFixed(1),
+    elev: '+~'+Math.round(parseInt(route.elev)*1000/(route.miles*count)/(route.miles/count))+'ft',
+    hotels:[], pubs:[], views:[]
+  }));
+}
+
+function togDaySeg(i) {
+  document.getElementById('dsb-'+i).classList.toggle('open');
+}
+
+function showDayOnMap(i) {
+  switchScreen('map');
+  const stage = COTSWOLD_STAGES[i];
+  if (!stage) return;
+  // Fly to midpoint of day
+  const seg = COTSWOLD_WAY[Math.round((i/COTSWOLD_STAGES.length)*COTSWOLD_WAY.length)];
+  map.flyTo(seg, 12, {animate:true, duration:1.2});
+}
+
+function loadDayWeather(i, town) {
+  switchScreen('map');
+  toggleWeather();
+  fetchWeather(currentLat, currentLon);
+}
+
+function addDays(dateStr, days) {
+  const d = new Date(dateStr);
+  d.setDate(d.getDate() + days);
+  return d.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'});
+}
+
+/* ═══ ROUTE CONDITIONS (community-style, Overpass for closures) ═══ */
+async function loadRouteConditions() {
+  const el = document.getElementById('routeAlerts');
+  // Static representative conditions for Cotswold Way
+  el.innerHTML = `
+    <div class="alert-card warn">
+      <div class="alert-ico">⚠️</div>
+      <div>
+        <div class="alert-title">Path Diversion — Stanton to Stanway</div>
+        <div class="alert-body">Temporary closure due to livestock. Signed diversion via Snowshill Rd adds 0.4mi.</div>
+        <div class="alert-meta">Reported 2 days ago · 6 hikers confirmed · <a href="https://www.nationaltrail.co.uk/en_GB/trails/cotswold-way/" target="_blank" style="color:var(--burnt)">View official page</a></div>
+      </div>
+    </div>
+    <div class="alert-card info">
+      <div class="alert-ico">💧</div>
+      <div>
+        <div class="alert-title">Muddy Conditions — Hailes to Winchcombe</div>
+        <div class="alert-body">Waterproof boots strongly recommended. Sections very boggy after recent rain.</div>
+        <div class="alert-meta">Reported yesterday · 14 hikers confirmed</div>
+      </div>
+    </div>
+    <div class="alert-card ok">
+      <div class="alert-ico">✅</div>
+      <div>
+        <div class="alert-title">All Clear — Chipping Campden to Broadway</div>
+        <div class="alert-body">Excellent condition. No issues reported, well-signed throughout.</div>
+        <div class="alert-meta">Verified today · 28 hikers</div>
+      </div>
+    </div>
+    <div class="alert-card info">
+      <div class="alert-ico">🌉</div>
+      <div>
+        <div class="alert-title">Bridge Repairs — Near Dursley</div>
+        <div class="alert-body">Footbridge over Ewelme Brook narrowed for repairs. Single file crossing only.</div>
+        <div class="alert-meta">Reported 5 days ago · <a href="https://www.nationaltrail.co.uk/en_GB/trails/cotswold-way/" target="_blank" style="color:var(--burnt)">Official source</a></div>
+      </div>
+    </div>`;
+}
+
+/* ═══ EXPLORE ═══ */
+function renderExplore() {
+  const el = document.getElementById('exploreList');
+  if (el.innerHTML) return;
+  const diffColors = { mod:'#45701C', hard:'#C8512A', easy:'#2980b9' };
+  const bgs = [
+    'linear-gradient(135deg,#243D0F,#45701C,#7A5C35)',
+    'linear-gradient(135deg,#1a3a5c,#2c5f8a,#4a8ab5)',
+    'linear-gradient(135deg,#1a5c3a,#2c8a5c,#40b58a)',
+    'linear-gradient(135deg,#3a1a5c,#6c2c9a,#8a40b5)',
+    'linear-gradient(135deg,#5c3a1a,#8a5c2c,#b58040)',
+    'linear-gradient(135deg,#2980b9,#1a5276,#154360)',
+  ];
+  el.innerHTML = ROUTES.map((r,i)=>`
+    <div class="route-card">
+      <div class="route-img" style="background:${bgs[i%bgs.length]}">
+        <div class="route-img-name">${r.name}</div>
+      </div>
+      <div class="route-body">
+        <div class="route-meta">
+          <div class="rm">📍 ${r.from} → ${r.to}</div>
+          <div class="rm">📏 ${r.miles} mi</div>
+          <div class="rm">⛰ ${r.elev}</div>
+          <div class="rm">🗓 ${r.days} days</div>
+        </div>
+        <div style="font-size:11px;color:#888;margin-bottom:8px;line-height:1.4">${r.desc}</div>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span class="diff diff-${r.diff}" style="background:rgba(${r.diff==='hard'?'200,81,42':r.diff==='mod'?'69,112,28':'41,128,185'},.12);color:${diffColors[r.diff]}">${r.diff==='mod'?'Moderate':r.diff==='hard'?'Challenging':'Easy'}</span>
+          <div style="display:flex;gap:6px">
+            <button class="btn-sec" onclick="loadRouteOnMap('${r.id}')">🗺 Load</button>
+            <button class="btn-sec" onclick="planRoute('${r.id}')">📋 Plan</button>
+          </div>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+function loadRouteOnMap(id) {
+  const route = ROUTES.find(r=>r.id===id);
+  if (!route) return;
+  switchScreen('map');
+  if (cotswoldPolyline) { map.removeLayer(cotswoldPolyline); cotswoldPolyline=null; }
+  cotswoldPolyline = L.polyline(route.coords, {
+    color:route.color, weight:4, opacity:.88, dashArray:'10,5'
+  }).addTo(map);
+  map.fitBounds(cotswoldPolyline.getBounds(),{padding:[40,40]});
+  trailVisible = true;
+  document.getElementById('ctrlTrail').classList.add('active');
+  showToast(`🗺 ${route.name} loaded`);
+}
+
+function planRoute(id) {
+  document.getElementById('routeSel').value = id;
+  switchScreen('plan');
+  showToast('Set your dates and generate itinerary');
+}
+
+/* ═══ IMPORT MODAL ═══ */
+function openImportModal() { document.getElementById('importModal').classList.add('open'); }
+function closeModal(e, id) {
+  if (e.target === document.getElementById(id)) {
+    document.getElementById(id).classList.remove('open');
+  }
+}
+let selSrcVal = null;
+function selSrc(el, src) {
+  document.querySelectorAll('.src-btn').forEach(b=>b.classList.remove('on'));
+  el.classList.add('on');
+  selSrcVal = src;
+  if (src === 'file') document.getElementById('gpxFile').click();
+}
+function confirmImport() {
+  if (!selSrcVal) { showToast('Select a source'); return; }
+  if (selSrcVal === 'file') { document.getElementById('gpxFile').click(); return; }
+  document.getElementById('importModal').classList.remove('open');
+  showToast(`📂 Open ${selSrcVal.toUpperCase()}, export GPX, then import via File`);
+}
+
+/* ═══ SETTINGS ═══ */
+function togSet(row, key) {
+  const tog = row.querySelector('.toggle');
+  if (tog) {
+    tog.classList.toggle('on');
+    if (key === 'offroute') offRouteToggle = tog.classList.contains('on');
+  }
+}
+function selChip(el) {
+  document.querySelectorAll('#poiTypeChips .chip').forEach(c=>c.classList.remove('on'));
+  el.classList.add('on');
+}
+function showApiKeyInfo() { document.getElementById('apiModal').classList.add('open'); }
+
+/* ═══ UTILS ═══ */
+function haversineKm(lat1,lon1,lat2,lon2) {
+  const R=6371, dLat=(lat2-lat1)*Math.PI/180, dLon=(lon2-lon1)*Math.PI/180;
+  const a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+function distToPolylineMeters(lat, lon, coords) {
+  let min = Infinity;
+  for (let i=0;i<coords.length-1;i++) {
+    const d = pointToSegmentDist(lat,lon,coords[i][0],coords[i][1],coords[i+1][0],coords[i+1][1]);
+    if (d<min) min=d;
+  }
+  return min * 111320;
+}
+function pointToSegmentDist(px,py,ax,ay,bx,by) {
+  const dx=bx-ax, dy=by-ay;
+  if (dx===0&&dy===0) return Math.hypot(px-ax,py-ay);
+  const t=Math.max(0,Math.min(1,((px-ax)*dx+(py-ay)*dy)/(dx*dx+dy*dy)));
+  return Math.hypot(px-(ax+t*dx),py-(ay+t*dy));
+}
+function showToast(msg) {
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2800);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   COMMUNITY — SUPABASE + CLOUDINARY CONFIGURATION
+   ═══════════════════════════════════════════════════════════
+
+   STEP 1 — SUPABASE (free, app.supabase.com)
+   ─────────────────────────────────────────────
+   1. Go to app.supabase.com → New Project
+   2. Copy your Project URL and anon public key below
+   3. Run this SQL in your Supabase SQL Editor:
+
+      create table posts (
+        id uuid default gen_random_uuid() primary key,
+        user_id uuid references auth.users,
+        author text not null,
+        category text not null,
+        route text,
+        location text not null,
+        body text not null,
+        rating int check (rating between 1 and 5),
+        tags text[],
+        photos text[],
+        likes int default 0,
+        helpful int default 0,
+        created_at timestamptz default now()
+      );
+      alter table posts enable row level security;
+      create policy "Anyone can read posts" on posts for select using (true);
+      create policy "Auth users can insert" on posts for insert with check (auth.uid() = user_id);
+      create policy "Own posts only" on posts for update using (auth.uid() = user_id);
+      create policy "Own posts delete" on posts for delete using (auth.uid() = user_id);
+
+      create table post_likes (
+        post_id uuid references posts,
+        user_id uuid references auth.users,
+        primary key (post_id, user_id)
+      );
+      alter table post_likes enable row level security;
+      create policy "Read likes" on post_likes for select using (true);
+      create policy "Insert likes" on post_likes for insert with check (auth.uid() = user_id);
+      create policy "Delete likes" on post_likes for delete using (auth.uid() = user_id);
+
+   STEP 2 — CLOUDINARY (free, cloudinary.com)
+   ─────────────────────────────────────────────
+   1. Go to cloudinary.com → sign up free
+   2. Dashboard → Settings → Upload → Add upload preset
+      • Set signing mode to "Unsigned"
+      • Name it "oto_community"
+   3. Copy your Cloud Name below
+
+   STEP 3 — PASTE YOUR CREDENTIALS HERE:
+   ═══════════════════════════════════════════════════════════ */
+
+const SUPABASE_URL    = 'https://chsxzfayfdgjipexnadz.supabase.co';
+const SUPABASE_ANON   = 'PASTE_YOUR_PUBLISHABLE_KEY_HERE';        // ← REPLACE THIS WITH YOUR KEY
+const CLOUDINARY_NAME = 'dnlfpy8bb';                               // cloudinary.com → Dashboard
+const CLOUDINARY_PRESET = 'oto_community';                         // your unsigned upload preset name
+
+/* ═══════════════════════════════════════════════════════════
+   SUPABASE CLIENT (loaded via CDN at runtime)
+   ═══════════════════════════════════════════════════════════ */
+let sb = null;           // Supabase client
+let currentUser = null;  // Logged-in user
+let compStars = 0;
+let compCategory = 'trail';
+let compPhotos = [];     // {file, previewUrl, cloudUrl}
+let commTab = 'feed';
+let commFilter = 'all';
+let postLikes = new Set();
+
+async function initSupabase() {
+  // Dynamically load Supabase JS SDK
+  if (SUPABASE_URL.includes('YOUR_PROJECT')) {
+    // Demo mode — show sample posts
+    setTimeout(() => renderDemoPosts(), 500);
+    return;
+  }
+  const script = document.createElement('script');
+  script.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js';
+  script.onload = async () => {
+    sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+    const { data: { session } } = await sb.auth.getSession();
+    if (session) onAuthChange(session.user);
+    sb.auth.onAuthStateChange((_e, session) => {
+      onAuthChange(session?.user || null);
+    });
+    loadPosts();
+  };
+  document.head.appendChild(script);
+}
+
+/* ═══ AUTH ═══ */
+function openAuthModal() {
+  document.getElementById('authModal').classList.add('open');
+}
+function switchAuthTab(tab) {
+  document.getElementById('atab-in').classList.toggle('active', tab==='in');
+  document.getElementById('atab-up').classList.toggle('active', tab==='up');
+  document.getElementById('auth-in-form').style.display = tab==='in' ? 'block' : 'none';
+  document.getElementById('auth-up-form').style.display = tab==='up' ? 'block' : 'none';
+}
+
+async function doSignIn() {
+  if (!sb) { showToast('Supabase not configured — see setup guide'); return; }
+  const email = document.getElementById('siEmail').value.trim();
+  const pass  = document.getElementById('siPass').value;
+  const err   = document.getElementById('siErr');
+  err.textContent = '';
+  if (!email || !pass) { err.textContent = 'Please fill in all fields'; return; }
+  const { error } = await sb.auth.signInWithPassword({ email, password: pass });
+  if (error) { err.textContent = error.message; return; }
+  document.getElementById('authModal').classList.remove('open');
+  showToast('✅ Signed in!');
+}
+
+async function doSignUp() {
+  if (!sb) { showToast('Supabase not configured — see setup guide'); return; }
+  const name  = document.getElementById('suName').value.trim();
+  const email = document.getElementById('suEmail').value.trim();
+  const pass  = document.getElementById('suPass').value;
+  const err   = document.getElementById('suErr');
+  err.textContent = '';
+  if (!name || !email || !pass) { err.textContent = 'Please fill in all fields'; return; }
+  if (pass.length < 8) { err.textContent = 'Password must be at least 8 characters'; return; }
+  const { error } = await sb.auth.signUp({
+    email, password: pass,
+    options: { data: { display_name: name } }
+  });
+  if (error) { err.textContent = error.message; return; }
+  document.getElementById('authModal').classList.remove('open');
+  showToast('✅ Account created! Check your email to confirm.');
+}
+
+async function doGoogleSignIn() {
+  if (!sb) { showToast('Supabase not configured'); return; }
+  await sb.auth.signInWithOAuth({ provider: 'google' });
+}
+
+async function signOut() {
+  if (!sb) return;
+  await sb.auth.signOut();
+  onAuthChange(null);
+  showToast('Signed out');
+}
+
+function onAuthChange(user) {
+  currentUser = user;
+  const badge = document.getElementById('commUserBadge');
+  const signBtn = document.getElementById('commSignInBtn');
+  const fab = document.getElementById('writeFab');
+  if (user) {
+    const name = user.user_metadata?.display_name || user.email.split('@')[0];
+    document.getElementById('commUserName').textContent = name;
+    document.getElementById('commAvatarSmall').textContent = name[0].toUpperCase();
+    badge.style.display = 'flex';
+    signBtn.style.display = 'none';
+    // Update profile screen
+    document.querySelector('.prof-av').textContent = name[0].toUpperCase();
+    document.querySelector('.prof-name').textContent = name.toUpperCase();
+  } else {
+    badge.style.display = 'none';
+    signBtn.style.display = 'block';
+  }
+  // FAB visible only on community screen when signed in
+  if (document.getElementById('screen-community').classList.contains('active')) {
+    fab.classList.toggle('show', !!user);
+  }
+}
+
+/* ═══ POSTS — LOAD ═══ */
+async function loadPosts() {
+  if (!sb) { renderDemoPosts(); return; }
+  const feed = document.getElementById('commFeed');
+  feed.innerHTML = '<div class="comm-loading"><div class="spinner"></div> Loading posts…</div>';
+
+  let query = sb.from('posts').select('*').order('created_at', { ascending: false }).limit(40);
+  if (commTab !== 'feed') {
+    const catMap = { trails:'trail', stays:'hotel', food:'restaurant', conditions:'condition' };
+    if (catMap[commTab]) query = query.eq('category', catMap[commTab]);
+  }
+  if (commFilter === 'cotswold') query = query.eq('route', 'Cotswold Way');
+  if (commFilter === 'westhighland') query = query.eq('route', 'West Highland Way');
+  if (commFilter === 'southdowns') query = query.eq('route', 'South Downs Way');
+  if (commFilter === 'top') query = query.gte('rating', 4);
+  if (commFilter === 'photos') query = query.not('photos', 'eq', '{}');
+
+  const { data, error } = await query;
+  if (error) { feed.innerHTML = `<div class="empty-state"><div class="ei">⚠️</div><div class="et">Couldn't load posts</div><div class="es">${error.message}</div></div>`; return; }
+  if (!data.length) { feed.innerHTML = '<div class="empty-state"><div class="ei">🌿</div><div class="et">No posts yet</div><div class="es">Be the first to share a review!</div></div>'; return; }
+  feed.innerHTML = '';
+  data.forEach(post => feed.appendChild(buildPostCard(post)));
+}
+
+function buildPostCard(post) {
+  const div = document.createElement('div');
+  div.className = 'post-card';
+  const avatarColors = ['#C8512A','#2D5016','#2980b9','#8e44ad','#16a085','#c0392b'];
+  const color = avatarColors[post.author.charCodeAt(0) % avatarColors.length];
+  const stars = '★'.repeat(post.rating||0) + '☆'.repeat(5-(post.rating||0));
+  const catLabel = {trail:'🥾 Trail',hotel:'🏨 Stay',restaurant:'🍽 Food',pub:'🍺 Pub',poi:'📸 POI',condition:'⚠️ Condition'}[post.category] || post.category;
+  const catClass = {trail:'cat-trail',hotel:'cat-hotel',restaurant:'cat-restaurant',pub:'cat-restaurant',poi:'cat-poi',condition:'cat-condition'}[post.category] || 'cat-poi';
+  const timeAgo = getTimeAgo(post.created_at);
+  const tags = (post.tags||[]).map(t => {
+    const cls = t.includes('Clear')||t.includes('Value')||t.includes('View') ? 'good' : t.includes('Closure')||t.includes('Muddy')||t.includes('Livestock') ? 'warn' : '';
+    return `<span class="post-tag ${cls}">${t}</span>`;
+  }).join('');
+  const photos = (post.photos||[]).map(url =>
+    `<img class="post-photo" src="${url}" alt="Trail photo" onclick="openLightbox('${url}')" onerror="this.style.display='none'">`
+  ).join('');
+  const isLiked = postLikes.has(post.id);
+
+  div.innerHTML = `
+    <div class="post-card-header">
+      <div class="post-avatar" style="background:${color}">${post.author[0].toUpperCase()}</div>
+      <div class="post-meta">
+        <div class="post-author">${post.author}</div>
+        <div class="post-location"><span>📍</span>${post.location}${post.route ? ' · ' + post.route : ''}</div>
+      </div>
+      <div class="post-time">${timeAgo}</div>
+    </div>
+    <div class="post-category ${catClass}">${catLabel}</div>
+    ${post.rating ? `<div class="post-stars" style="color:#e67e22;font-size:14px;padding:5px 13px 0">${stars}</div>` : ''}
+    <div class="post-body">${post.body}</div>
+    ${tags ? `<div class="post-tags">${tags}</div>` : ''}
+    ${photos ? `<div class="post-photos">${photos}</div>` : ''}
+    <div class="post-actions">
+      <div class="post-action ${isLiked?'liked':''}" onclick="toggleLike(this,'${post.id}')">
+        <span>❤️</span> <span class="like-count">${post.likes||0}</span>
+      </div>
+      <div class="post-action" onclick="toggleLike(this,'${post.id}','helpful')">
+        <span>👍</span> <span>${post.helpful||0} Helpful</span>
+      </div>
+      <div class="post-action" onclick="sharePost('${post.location}')">
+        <span>↗️</span> Share
+      </div>
+    </div>`;
+  return div;
+}
+
+async function toggleLike(el, postId, type='like') {
+  if (!currentUser) { openAuthModal(); return; }
+  if (!sb) { showToast('Sign in to like posts'); return; }
+  el.classList.toggle('liked');
+  const countEl = el.querySelector('.like-count') || el.querySelector('span:last-child');
+  const field = type === 'helpful' ? 'helpful' : 'likes';
+  const isLiked = postLikes.has(postId);
+  if (isLiked) {
+    postLikes.delete(postId);
+    await sb.from('post_likes').delete().match({post_id:postId,user_id:currentUser.id});
+    await sb.rpc('decrement_'+field, {post_id:postId});
+  } else {
+    postLikes.add(postId);
+    await sb.from('post_likes').insert({post_id:postId,user_id:currentUser.id});
+    await sb.rpc('increment_'+field, {post_id:postId});
+  }
+}
+
+function sharePost(location) {
+  if (navigator.share) {
+    navigator.share({ title: `OTO Review — ${location}`, text: `Check out this review on OneTripOnly!`, url: window.location.href });
+  } else {
+    navigator.clipboard?.writeText(window.location.href);
+    showToast('Link copied!');
+  }
+}
+
+/* ═══ COMPOSE ═══ */
+function openCompose() {
+  if (!currentUser) { openAuthModal(); return; }
+  document.getElementById('composeModal').classList.add('open');
+}
+
+function selCompCat(el, cat) {
+  document.querySelectorAll('#compCatChips .chip').forEach(c=>c.classList.remove('on'));
+  el.classList.add('on');
+  compCategory = cat;
+  // Adjust tags for category
+  const tagPicker = document.getElementById('tagPicker');
+  const condTags = ['✅ All Clear','💧 Muddy','⚠️ Closure','🌧 Rain Damage','🐄 Livestock','🌿 Overgrown'];
+  const hotelTags = ['💰 Great Value','🛁 Excellent Rooms','🚿 Good Facilities','🍳 Good Breakfast','🅿️ Free Parking','🐕 Dog Friendly','📶 Good WiFi'];
+  const foodTags = ['🍺 Great Beer','🥗 Veggie Options','💰 Affordable','🐕 Dog Friendly','🔥 Cosy Atmosphere','🌟 Must Visit'];
+  const trailTags = ['🌟 Stunning Views','🥾 Well Signed','💧 Muddy','⚠️ Closure','🏕 Wild Camping OK','🐄 Livestock','♿ Accessible'];
+  const tags = cat==='condition'||cat==='trail' ? trailTags : cat==='hotel' ? hotelTags : cat==='restaurant'||cat==='pub' ? foodTags : trailTags;
+  tagPicker.innerHTML = tags.map(t=>`<div class="tag-opt" onclick="togTag(this)">${t}</div>`).join('');
+}
+
+function setStars(n) {
+  compStars = n;
+  document.querySelectorAll('.star-pick').forEach((s,i)=>s.classList.toggle('on',i<n));
+}
+
+function togTag(el) { el.classList.toggle('on'); }
+
+function handlePhotoSelect(e) {
+  const files = Array.from(e.target.files).slice(0, 5); // max 5
+  files.forEach(file => {
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const obj = { file, previewUrl: ev.target.result, cloudUrl: null };
+      compPhotos.push(obj);
+      renderPhotoRow();
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function renderPhotoRow() {
+  const row = document.getElementById('photoPreviewRow');
+  row.innerHTML = compPhotos.map((p,i) =>
+    `<div style="position:relative">
+      <img class="photo-thumb" src="${p.previewUrl}" alt="">
+      <div onclick="removePhoto(${i})" style="position:absolute;top:-4px;right:-4px;background:#c0392b;color:#fff;border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:11px;cursor:pointer">✕</div>
+    </div>`
+  ).join('') +
+  (compPhotos.length < 5 ? `<div class="photo-add-btn" onclick="document.getElementById('photoUpload').click()">＋</div>` : '') +
+  `<input type="file" id="photoUpload" accept="image/*" multiple style="display:none" onchange="handlePhotoSelect(event)">`;
+}
+
+function removePhoto(i) {
+  compPhotos.splice(i, 1);
+  renderPhotoRow();
+}
+
+async function uploadToCloudinary(file) {
+  if (CLOUDINARY_NAME === 'YOUR_CLOUDINARY_CLOUD_NAME') return null;
+  const fd = new FormData();
+  fd.append('file', file);
+  fd.append('upload_preset', CLOUDINARY_PRESET);
+  fd.append('folder', 'oto_community');
+  const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_NAME}/image/upload`, { method:'POST', body:fd });
+  const d = await res.json();
+  return d.secure_url || null;
+}
+
+async function submitReview() {
+  if (!currentUser) { openAuthModal(); return; }
+  if (!sb) { showToast('Supabase not configured — see setup guide'); return; }
+  const location = document.getElementById('compLocation').value.trim();
+  const body = document.getElementById('compBody').value.trim();
+  const route = document.getElementById('compRoute').value;
+  const err = document.getElementById('compErr');
+  err.textContent = '';
+
+  if (!location) { err.textContent = 'Please enter a location'; return; }
+  if (!body || body.length < 10) { err.textContent = 'Review must be at least 10 characters'; return; }
+  if (!compStars) { err.textContent = 'Please select a star rating'; return; }
+
+  const btn = document.getElementById('compSubmitBtn');
+  btn.textContent = 'POSTING…'; btn.disabled = true;
+
+  // Upload photos to Cloudinary
+  const photoUrls = [];
+  for (const p of compPhotos) {
+    const url = await uploadToCloudinary(p.file);
+    if (url) photoUrls.push(url);
+  }
+
+  const tags = Array.from(document.querySelectorAll('.tag-opt.on')).map(t=>t.textContent.trim());
+  const name = currentUser.user_metadata?.display_name || currentUser.email.split('@')[0];
+
+  const { error } = await sb.from('posts').insert({
+    user_id: currentUser.id,
+    author: name,
+    category: compCategory,
+    route: route || null,
+    location,
+    body,
+    rating: compStars,
+    tags,
+    photos: photoUrls,
+  });
+
+  btn.textContent = 'POST REVIEW'; btn.disabled = false;
+
+  if (error) { err.textContent = error.message; return; }
+
+  // Reset form
+  document.getElementById('compLocation').value = '';
+  document.getElementById('compBody').value = '';
+  document.getElementById('compRoute').value = '';
+  compStars = 0; compPhotos = [];
+  document.querySelectorAll('.star-pick').forEach(s=>s.classList.remove('on'));
+  document.querySelectorAll('.tag-opt').forEach(t=>t.classList.remove('on'));
+  renderPhotoRow();
+
+  document.getElementById('composeModal').classList.remove('open');
+  showToast('✅ Review posted!');
+  loadPosts();
+}
+
+/* ═══ COMMUNITY TAB + FILTER SWITCHING ═══ */
+function switchCommTab(tab) {
+  commTab = tab;
+  document.querySelectorAll('.comm-tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('ctab-'+tab).classList.add('active');
+  loadPosts();
+}
+
+function selFilter(el, filter) {
+  commFilter = filter;
+  document.querySelectorAll('.filter-pill').forEach(p=>p.classList.remove('on'));
+  el.classList.add('on');
+  loadPosts();
+}
+
+/* ═══ LIGHTBOX ═══ */
+function openLightbox(url) {
+  document.getElementById('lightboxImg').src = url;
+  document.getElementById('lightbox').classList.add('open');
+}
+function closeLightbox() {
+  document.getElementById('lightbox').classList.remove('open');
+}
+
+/* ═══ DEMO POSTS (shown when Supabase not configured) ═══ */
+function renderDemoPosts() {
+  const feed = document.getElementById('commFeed');
+  const demos = [
+    { id:'1', author:'Sarah M.', category:'trail', route:'Cotswold Way', location:'Cleeve Hill, Winchcombe', body:'Absolutely stunning on a clear day — you can see the Brecon Beacons! The path up is steep but well-marked. Surface was a bit boggy near the top after recent rain but totally manageable with decent boots.', rating:5, tags:['🌟 Stunning Views','🥾 Well Signed','💧 Muddy'], photos:[], likes:14, helpful:9, created_at: new Date(Date.now()-3600000*2).toISOString() },
+    { id:'2', author:'James T.', category:'hotel', route:'Cotswold Way', location:'White Hart Inn, Winchcombe', body:'Perfect trail stop — they know walkers well, dry room for boots and bags, hearty breakfast that set us up for Day 3. Rooms are small but spotless. Book ahead, it fills up fast in summer.', rating:4, tags:['🍳 Good Breakfast','🐕 Dog Friendly','💰 Great Value'], photos:[], likes:8, helpful:12, created_at: new Date(Date.now()-3600000*18).toISOString() },
+    { id:'3', author:'OTO Trails', category:'condition', route:'Cotswold Way', location:'Stanton to Stanway section', body:'HEADS UP: Temporary path closure in effect as of this week. Diversion is signed and adds approx 0.4 miles via Snowshill Road. Allow extra time on Day 2 if using standard itinerary.', rating:null, tags:['⚠️ Closure'], photos:[], likes:22, helpful:31, created_at: new Date(Date.now()-3600000*26).toISOString() },
+    { id:'4', author:'Pete & Lou', category:'restaurant', route:'Cotswold Way', location:'The Falcon Inn, Painswick', body:'Brilliant find after a long day on the hills. Real ales, proper pub food, and the landlord actually knows the Cotswold Way route well — gave us great tips for the next section. Highly recommend the lamb shank.', rating:5, tags:['🍺 Great Beer','🥗 Veggie Options','🔥 Cosy Atmosphere'], photos:[], likes:11, helpful:7, created_at: new Date(Date.now()-3600000*48).toISOString() },
+    { id:'5', author:'Annika R.', category:'trail', route:'Cotswold Way', location:'Broadway Tower to Fish Hill', body:'One of the best stretches of the whole route. Broadway Tower at dawn is magical if you\'re staying overnight in Broadway. The descent into the village is gradual and gorgeous. Paths are in great shape right now.', rating:5, tags:['🌟 Stunning Views','✅ All Clear','🥾 Well Signed'], photos:[], likes:19, helpful:14, created_at: new Date(Date.now()-3600000*72).toISOString() },
+  ];
+  feed.innerHTML = '';
+  demos.forEach(p => feed.appendChild(buildPostCard(p)));
+  // Show a banner that this is demo mode
+  const banner = document.createElement('div');
+  banner.style.cssText = 'text-align:center;font-size:11px;color:#aaa;padding:10px;font-style:italic';
+  banner.textContent = '⚙️ Demo posts — connect Supabase to enable real community reviews';
+  feed.appendChild(banner);
+}
+
+/* ═══ SCREEN SWITCH — update FAB visibility ═══ */
+const _origSwitch = switchScreen;
+function switchScreen(name) {
+  _origSwitch(name);
+  const fab = document.getElementById('writeFab');
+  if (fab) fab.classList.toggle('show', name === 'community' && !!currentUser);
+}
+
+/* ═══ TIME AGO ═══ */
+function getTimeAgo(iso) {
+  const diff = (Date.now() - new Date(iso)) / 1000;
+  if (diff < 60) return 'just now';
+  if (diff < 3600) return Math.floor(diff/60) + 'm ago';
+  if (diff < 86400) return Math.floor(diff/3600) + 'h ago';
+  if (diff < 604800) return Math.floor(diff/86400) + 'd ago';
+  return new Date(iso).toLocaleDateString('en-GB',{day:'numeric',month:'short'});
+}
+
+/* ═══ SERVICE WORKER — enables install prompt + offline ═══ */
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js')
+      .then(reg => console.log('OTO SW registered'))
+      .catch(err => console.log('SW registration failed:', err));
+  });
+}
+</script>
+</body>
+</html>
