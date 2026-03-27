@@ -1339,6 +1339,9 @@ function switchScreen(name) {
   if (nb) nb.classList.add('active');
   if (name === 'map') setTimeout(() => map.invalidateSize(), 60);
   if (name === 'explore') renderExplore();
+  if (name === 'community' && !sb) renderDemoPosts();
+  const fab = document.getElementById('writeFab');
+  if (fab) fab.classList.toggle('show', name === 'community' && !!currentUser);
 }
 
 /* ═══ GPS ═══ */
@@ -2459,14 +2462,6 @@ function renderDemoPosts() {
   feed.appendChild(banner);
 }
 
-/* ═══ SCREEN SWITCH — update FAB visibility ═══ */
-const _origSwitch = switchScreen;
-function switchScreen(name) {
-  _origSwitch(name);
-  const fab = document.getElementById('writeFab');
-  if (fab) fab.classList.toggle('show', name === 'community' && !!currentUser);
-}
-
 /* ═══ TIME AGO ═══ */
 function getTimeAgo(iso) {
   const diff = (Date.now() - new Date(iso)) / 1000;
@@ -2480,7 +2475,9 @@ function getTimeAgo(iso) {
 /* ═══ SERVICE WORKER — enables install prompt + offline ═══ */
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js')
+    // Works for both root domains and GitHub Pages subfolders
+    const swPath = window.location.pathname.replace(/\/[^/]*$/, '/') + 'sw.js';
+    navigator.serviceWorker.register(swPath)
       .then(reg => console.log('OTO SW registered'))
       .catch(err => console.log('SW registration failed:', err));
   });

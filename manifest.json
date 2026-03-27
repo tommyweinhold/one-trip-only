@@ -2,7 +2,7 @@
   "name": "OneTripOnly",
   "short_name": "OTO",
   "description": "Your hiking companion for trails, planning, and community",
-  "start_url": "/",
+  "start_url": ".",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#2A2520",
@@ -22,20 +22,12 @@
     }
   ],
   "categories": ["travel", "navigation", "sports"],
-  "screenshots": [],
   "shortcuts": [
     {
       "name": "Map",
       "short_name": "Map",
       "description": "Open the trail map",
-      "url": "/#map",
-      "icons": [{ "src": "icon-192.png", "sizes": "192x192" }]
-    },
-    {
-      "name": "Plan Trip",
-      "short_name": "Plan",
-      "description": "Plan your next hike",
-      "url": "/#plan",
+      "url": ".",
       "icons": [{ "src": "icon-192.png", "sizes": "192x192" }]
     }
   ]
