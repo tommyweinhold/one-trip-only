@@ -1273,29 +1273,26 @@ function initMap() {
   addRouteMarker(52.0494, -1.7781, '📍', 'Chipping Campden', 'Start of Cotswold Way', '#2D5016');
   addRouteMarker(51.3813, -2.3596, '🏁', 'Bath', 'End of Cotswold Way — 102 miles', '#C8512A');
 
-  // Load initial nearby POIs silently
-  setTimeout(() => loadNearbyPOIs(true), 1500);
-
   map.on('click', onMapClick);
 }
 
 function buildMapLayers() {
   return [
-    { name:'Topo (default)', tile: L.tileLayer(
+    { name:'Topo', tile: L.tileLayer(
+      'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+      { maxZoom:17, attribution:'© OpenTopoMap, © OpenStreetMap contributors', subdomains:'abc' }
+    )},
+    { name:'Terrain', tile: L.tileLayer(
       'https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}',
       { maxZoom:18, attribution:'© Esri, © OpenStreetMap contributors' }
     )},
-    { name:'Terrain', tile: L.tileLayer(
-      'https://tiles.stadiamaps.com/tiles/stamen_terrain/{z}/{x}/{y}{r}.png',
-      { maxZoom:18, attribution:'© Stadia Maps, © Stamen Design, © OpenStreetMap contributors' }
-    )},
-    { name:'Satellite + Labels', tile: L.tileLayer(
+    { name:'Satellite', tile: L.tileLayer(
       'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-      { maxZoom:18, attribution:'© Esri, © OpenStreetMap contributors' }
+      { maxZoom:18, attribution:'© Esri' }
     )},
     { name:'Standard', tile: L.tileLayer(
-      'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-      { maxZoom:19, attribution:'© OpenStreetMap contributors' }
+      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
+      { maxZoom:18, attribution:'© Esri, © OpenStreetMap contributors' }
     )},
   ];
 }
@@ -1345,26 +1342,36 @@ function switchScreen(name) {
 }
 
 /* ═══ GPS ═══ */
-function toggleGPS() {
-  gpsActive = !gpsActive;
+function startGPS() {
+  if (!navigator.geolocation) {
+    showToast('Geolocation not supported in this browser');
+    return;
+  }
   const dot = document.getElementById('gpsDot');
   const lbl = document.getElementById('gpsLabel');
+  dot.className = 'gps-dot on';
+  lbl.textContent = 'LOCATING…';
+  gpsActive = true;
+  gpsWatchId = navigator.geolocation.watchPosition(
+    pos => onGPSSuccess(pos),
+    err => onGPSError(err),
+    { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 }
+  );
+}
+
+async function toggleGPS() {
   if (gpsActive) {
-    dot.className = 'gps-dot on';
-    lbl.textContent = 'LOCATING…';
-    if (!navigator.geolocation) { showToast('Geolocation not supported'); gpsActive=false; return; }
-    gpsWatchId = navigator.geolocation.watchPosition(
-      pos => onGPSSuccess(pos),
-      err => onGPSError(err),
-      { enableHighAccuracy: true, maximumAge: 3000, timeout: 15000 }
-    );
-    showToast('📡 GPS acquiring…');
-  } else {
+    // Turn off
+    gpsActive = false;
+    const dot = document.getElementById('gpsDot');
+    const lbl = document.getElementById('gpsLabel');
     dot.className = 'gps-dot';
     lbl.textContent = 'GPS OFF';
-    if (gpsWatchId) navigator.geolocation.clearWatch(gpsWatchId);
+    if (gpsWatchId) { navigator.geolocation.clearWatch(gpsWatchId); gpsWatchId = null; }
     if (userMarker) { map.removeLayer(userMarker); userMarker = null; }
     showToast('GPS off');
+  } else {
+    startGPS();
   }
 }
 
@@ -1416,9 +1423,20 @@ function onGPSSuccess(pos) {
 }
 
 function onGPSError(err) {
+  gpsActive = false;
   document.getElementById('gpsDot').className = 'gps-dot';
-  document.getElementById('gpsLabel').textContent = 'GPS ERR';
-  showToast('GPS error: '+err.message);
+  if (err.code === 1) {
+    // Permission denied
+    document.getElementById('gpsLabel').textContent = 'BLOCKED';
+    showToast('📍 Enable location: Chrome menu → Settings → Privacy → Site Settings → Location → Allow');
+  } else if (err.code === 2) {
+    document.getElementById('gpsLabel').textContent = 'NO SIGNAL';
+    showToast('📍 GPS unavailable — try moving outside or enabling location services');
+  } else {
+    document.getElementById('gpsLabel').textContent = 'GPS ERR';
+    showToast('📍 GPS timed out — tap GPS pill to retry');
+  }
+  console.warn('GPS error:', err.code, err.message);
 }
 
 function centerOnUser() {
@@ -1469,40 +1487,50 @@ function toggleTracking() {
 
 /* ═══ WEATHER — Open-Meteo (FREE, no key) ═══ */
 async function fetchWeather(lat, lon) {
+  const strip = document.getElementById('wxStrip');
+  strip.innerHTML = '<span class="wx-loading">Loading weather…</span>';
   try {
-    const res = await fetch(API.weather(lat,lon));
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&hourly=relative_humidity_2m,uv_index,precipitation&wind_speed_unit=mph&temperature_unit=fahrenheit&timezone=auto&forecast_days=1`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const d = await res.json();
-    const c = d.current;
+    const c = d.current_weather;
+    if (!c) throw new Error('No current_weather in response');
     const wmo = {0:'☀️ Clear',1:'🌤 Mostly Clear',2:'⛅ Partly Cloudy',3:'☁️ Overcast',
       45:'🌫 Fog',48:'🌫 Icy Fog',51:'🌦 Light Drizzle',53:'🌦 Drizzle',61:'🌧 Rain',
       63:'🌧 Heavy Rain',71:'❄️ Snow',80:'🌧 Showers',81:'🌧 Heavy Showers',95:'⛈ Thunderstorm'};
-    const cond = wmo[c.weather_code] || '🌤 Fair';
-    const strip = document.getElementById('wxStrip');
+    const cond = wmo[c.weathercode] || '🌤 Fair';
+    // Get hourly data for current hour
+    const hourIdx = new Date().getHours();
+    const humidity = d.hourly?.relative_humidity_2m?.[hourIdx] ?? '—';
+    const uv = d.hourly?.uv_index?.[hourIdx] ?? '—';
     strip.innerHTML = `
       <div class="wx-item"><span class="wi">${cond.split(' ')[0]}</span> ${cond.split(' ').slice(1).join(' ')}</div>
-      <div class="wx-item"><span class="wi">🌡</span> ${Math.round(c.temperature_2m)}°F</div>
-      <div class="wx-item"><span class="wi">💨</span> ${Math.round(c.wind_speed_10m)} mph</div>
-      <div class="wx-item"><span class="wi">💧</span> ${c.relative_humidity_2m}%</div>
-      <div class="wx-item"><span class="wi">☀️</span> UV ${c.uv_index}</div>
-      ${c.precipitation>0?`<div class="wx-item"><span class="wi">🌧</span> ${c.precipitation}mm</div>`:''}
+      <div class="wx-item"><span class="wi">🌡</span> ${Math.round(c.temperature)}°F</div>
+      <div class="wx-item"><span class="wi">💨</span> ${Math.round(c.windspeed)} mph</div>
+      <div class="wx-item"><span class="wi">💧</span> ${humidity}% humidity</div>
+      <div class="wx-item"><span class="wi">☀️</span> UV ${uv}</div>
     `;
   } catch(e) {
-    document.getElementById('wxStrip').innerHTML = '<span class="wx-loading">Weather unavailable</span>';
+    console.warn('Weather fetch error:', e);
+    strip.innerHTML = '<span class="wx-loading">Weather unavailable — check connection</span>';
   }
 }
 
-/* ═══ ELEVATION — OpenTopoData (FREE, no key) ═══ */
+/* ═══ ELEVATION — Open-Elevation (FREE, open CORS) ═══ */
 async function fetchElevation(lat, lon) {
   try {
-    const res = await fetch(API.elevation(lat,lon));
+    const res = await fetch(`https://api.open-elevation.com/api/v1/lookup?locations=${lat},${lon}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const d = await res.json();
     if (d.results && d.results[0]) {
-      const meters = d.results[0].elevation;
-      const ft = Math.round(meters * 3.28084);
+      const ft = Math.round(d.results[0].elevation * 3.28084);
       document.getElementById('hudElev').textContent = ft;
       return ft;
     }
-  } catch(e) {}
+  } catch(e) {
+    console.warn('Elevation fetch error:', e);
+  }
   return null;
 }
 
@@ -1606,54 +1634,62 @@ async function loadNearbyPOIs(silent=false) {
   const btn = document.getElementById('ctrlPOI');
   btn.classList.add('active');
   const lat = currentLat, lon = currentLon;
-  const query = `
-    [out:json][timeout:25];
-    (
-      node["tourism"="hotel"](around:8000,${lat},${lon});
-      node["amenity"="restaurant"](around:5000,${lat},${lon});
-      node["amenity"="pub"](around:5000,${lat},${lon});
-      node["tourism"="viewpoint"](around:8000,${lat},${lon});
-      node["amenity"="camp_site"](around:8000,${lat},${lon});
-      node["shop"="supermarket"](around:5000,${lat},${lon});
-    );
-    out body;`;
-  try {
-    const res = await fetch(API.overpass(), {
-      method:'POST', body:'data='+encodeURIComponent(query)
-    });
-    const d = await res.json();
-    const emojiMap = {hotel:'🏨',restaurant:'🍽',pub:'🍺',viewpoint:'📸',camp_site:'⛺',supermarket:'🏪'};
-    let count = 0;
-    d.elements.slice(0,40).forEach(el => {
-      if (!el.lat || !el.lon) return;
-      const type = el.tags.tourism || el.tags.amenity || el.tags.shop;
-      const emoji = emojiMap[type] || '📍';
-      const name = el.tags.name || (type.charAt(0).toUpperCase()+type.slice(1));
-      const icon = L.divIcon({
-        html:`<div style="background:#fff;border:2px solid #C8512A;border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-size:13px;box-shadow:0 2px 6px rgba(0,0,0,.22)">${emoji}</div>`,
-        className:'', iconAnchor:[13,13]
-      });
-      const marker = L.marker([el.lat,el.lon],{icon}).addTo(map);
-      marker.bindPopup(`
-        <div class="oto-popup">
-          <h3>${name}</h3>
-          <div class="otp-sub">${type.replace('_',' ')} · ${distKmLabel(lat,lon,el.lat,el.lon)}</div>
-          ${el.tags.opening_hours?`<div style="font-size:11px;color:#888;margin-bottom:4px">🕐 ${el.tags.opening_hours}</div>`:''}
-          <div class="otp-row">
-            <button class="otp-btn otp-btn-pin" onclick="pinPOI(${el.lat},${el.lon},'${name}','${emoji}')">📌 Pin</button>
-            <button class="otp-btn otp-btn-go" onclick="openDirections(${el.lat},${el.lon})">🧭 Directions</button>
-          </div>
-        </div>`);
-      pinnedPOIs.push({lat:el.lat,lon:el.lon,name,emoji,marker});
-      count++;
-    });
-    if (!silent) showToast(`✅ ${count} nearby POIs loaded`);
-    btn.classList.remove('active');
-    if (d.elements.length === 0 && !silent) showToast('No POIs found in this area');
-  } catch(e) {
-    btn.classList.remove('active');
-    if (!silent) showToast('POI load failed — check connection');
+  const query = `[out:json][timeout:25];(node["tourism"="hotel"](around:8000,${lat},${lon});node["amenity"="restaurant"](around:5000,${lat},${lon});node["amenity"="pub"](around:5000,${lat},${lon});node["tourism"="viewpoint"](around:8000,${lat},${lon});node["amenity"="camp_site"](around:8000,${lat},${lon});node["shop"="supermarket"](around:5000,${lat},${lon}););out body;`;
+  const encoded = encodeURIComponent(query);
+
+  // Try primary then mirror if 504
+  const endpoints = [
+    `https://overpass-api.de/api/interpreter?data=${encoded}`,
+    `https://overpass.kumi.systems/api/interpreter?data=${encoded}`,
+    `https://maps.mail.ru/osm/tools/overpass/api/interpreter?data=${encoded}`,
+  ];
+
+  let d = null;
+  for (const url of endpoints) {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      d = await res.json();
+      break;
+    } catch(e) {
+      console.warn('Overpass endpoint failed, trying next:', url, e.message);
+    }
   }
+
+  btn.classList.remove('active');
+
+  if (!d) {
+    if (!silent) showToast('POI search unavailable — try again in a moment');
+    return;
+  }
+
+  const emojiMap = {hotel:'🏨',restaurant:'🍽',pub:'🍺',viewpoint:'📸',camp_site:'⛺',supermarket:'🏪'};
+  let count = 0;
+  d.elements.slice(0,40).forEach(el => {
+    if (!el.lat || !el.lon) return;
+    const type = el.tags.tourism || el.tags.amenity || el.tags.shop;
+    const emoji = emojiMap[type] || '📍';
+    const name = el.tags.name || (type.charAt(0).toUpperCase()+type.slice(1));
+    const icon = L.divIcon({
+      html:`<div style="background:#fff;border:2px solid #C8512A;border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-size:13px;box-shadow:0 2px 6px rgba(0,0,0,.22)">${emoji}</div>`,
+      className:'', iconAnchor:[13,13]
+    });
+    const marker = L.marker([el.lat,el.lon],{icon}).addTo(map);
+    marker.bindPopup(`
+      <div class="oto-popup">
+        <h3>${name}</h3>
+        <div class="otp-sub">${type.replace('_',' ')} · ${distKmLabel(lat,lon,el.lat,el.lon)}</div>
+        ${el.tags.opening_hours?`<div style="font-size:11px;color:#888;margin-bottom:4px">🕐 ${el.tags.opening_hours}</div>`:''}
+        <div class="otp-row">
+          <button class="otp-btn otp-btn-pin" onclick="pinPOI(${el.lat},${el.lon},'${name.replace(/'/g,"\\'")}','${emoji}')">📌 Pin</button>
+          <button class="otp-btn otp-btn-go" onclick="openDirections(${el.lat},${el.lon})">🧭 Directions</button>
+        </div>
+      </div>`);
+    pinnedPOIs.push({lat:el.lat,lon:el.lon,name,emoji,marker});
+    count++;
+  });
+  if (!silent) showToast(`✅ ${count} nearby POIs loaded`);
+  if (!d.elements.length && !silent) showToast('No POIs found in this area');
 }
 
 function pinPOI(lat,lon,name,emoji) {
@@ -2100,24 +2136,23 @@ let commFilter = 'all';
 let postLikes = new Set();
 
 async function initSupabase() {
-  // Dynamically load Supabase JS SDK
-  if (SUPABASE_URL.includes('YOUR_PROJECT')) {
-    // Demo mode — show sample posts
-    setTimeout(() => renderDemoPosts(), 500);
+  if (SUPABASE_URL.includes('YOUR_PROJECT') || SUPABASE_ANON.includes('PASTE_YOUR')) {
+    setTimeout(() => renderDemoPosts(), 300);
     return;
   }
-  const script = document.createElement('script');
-  script.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js';
-  script.onload = async () => {
-    sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+  try {
+    const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
+    sb = createClient(SUPABASE_URL, SUPABASE_ANON);
     const { data: { session } } = await sb.auth.getSession();
     if (session) onAuthChange(session.user);
     sb.auth.onAuthStateChange((_e, session) => {
       onAuthChange(session?.user || null);
     });
     loadPosts();
-  };
-  document.head.appendChild(script);
+  } catch(e) {
+    console.warn('Supabase init error:', e);
+    renderDemoPosts();
+  }
 }
 
 /* ═══ AUTH ═══ */
@@ -2482,6 +2517,24 @@ if ('serviceWorker' in navigator) {
       .catch(err => console.log('SW registration failed:', err));
   });
 }
+
+/* ═══ INIT ═══ */
+document.addEventListener('DOMContentLoaded', () => {
+  setTimeout(() => {
+    initMap();
+    initSupabase();
+    startGPS(); // auto-request location on load
+    const today = new Date().toISOString().split('T')[0];
+    const startEl = document.getElementById('planStart');
+    const endEl = document.getElementById('planEnd');
+    if (startEl) startEl.value = today;
+    if (endEl) {
+      const end = new Date();
+      end.setDate(end.getDate() + 10);
+      endEl.value = end.toISOString().split('T')[0];
+    }
+  }, 100);
+});
 </script>
 </body>
 </html>
